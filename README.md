@@ -15,6 +15,7 @@ A real-time audio transcription application built with React and Python, using O
 - Python 3.8 or higher
 - Node.js 14 or higher
 - CUDA-compatible GPU (recommended)
+- ollama running locally
 
 ## Installation
 
