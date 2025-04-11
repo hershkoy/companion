@@ -4,6 +4,7 @@ from faster_whisper import WhisperModel
 import tempfile
 import os
 import torch
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -35,6 +36,13 @@ def transcribe_audio():
         for segment in segments:
             transcription += f" {segment.text}"
         
+        # Log the transcription with timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"\n[{timestamp}] Transcription:")
+        print(f"Language: {info.language} (probability: {info.language_probability:.2f})")
+        print(f"Text: {transcription.strip()}")
+        print("-" * 80)
+        
         return jsonify({
             'success': True,
             'transcription': transcription.strip(),
@@ -45,6 +53,12 @@ def transcribe_audio():
         })
             
     except Exception as e:
+        # Log the error
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"\n[{timestamp}] Error during transcription:")
+        print(f"Error: {str(e)}")
+        print("-" * 80)
+        
         return jsonify({
             'success': False,
             'error': str(e)
@@ -59,4 +73,7 @@ def transcribe_audio():
                 print(f"Warning: Could not delete temporary file {temp_path}: {e}")
 
 if __name__ == '__main__':
+    print("\nTranscription Service Started")
+    print("Waiting for audio input...")
+    print("-" * 80)
     app.run(debug=True, port=5000) 
