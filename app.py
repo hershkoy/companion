@@ -85,7 +85,13 @@ def get_ollama_response(prompt):
     
     response = requests.post(url, json=data)
     if response.status_code == 200:
-        return response.json()['response']
+        response_text = response.json()['response']
+        # Remove the thinking part enclosed in <think> tags
+        response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
+        # Clean up any extra newlines and spaces
+        response_text = re.sub(r'\n+', ' ', response_text)
+        response_text = re.sub(r'\s+', ' ', response_text)
+        return response_text.strip()
     else:
         raise Exception(f"Ollama API error: {response.status_code}")
 
@@ -107,8 +113,19 @@ def transcribe_audio():
         segments, info = whisper_model.transcribe(temp_path, beam_size=5)
         transcription = " ".join(segment.text for segment in segments)
         
+        # Log the transcription
+        print("\nWhisper Transcription:")
+        print("-" * 40)
+        print(transcription)
+        print("-" * 40)
+        
         # Get response from Ollama
         ollama_response = get_ollama_response(transcription.strip())
+        
+        print("\nDeepseek Response (after filtering):")
+        print("-" * 40)
+        print(ollama_response)
+        print("-" * 40)
         
         # Split response into sentences
         sentences = [s.strip() for s in re.split(r'[.!?]+', ollama_response) if s.strip()]
@@ -138,7 +155,10 @@ def transcribe_audio():
                             sf.write(wav_path, audio_data, 22050)
                             with open(wav_path, 'rb') as audio_file:
                                 audio_base64 = base64.b64encode(audio_file.read()).decode('utf-8')
-                            os.unlink(wav_path)
+                            try:
+                                os.unlink(wav_path)
+                            except Exception as e:
+                                print(f"Warning: Could not delete temporary wav file: {e}")
                         
                         # Store result with index for ordering
                         results[sentence_idx] = {
