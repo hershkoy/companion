@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import './App.css';
+import logger from './utils/logger';
 
 function App() {
   const [isRecording, setIsRecording] = useState(false);
@@ -7,11 +8,26 @@ function App() {
   const [aiResponse, setAiResponse] = useState('');
   const [audioSegments, setAudioSegments] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [error, setError] = useState(null);
+  const [sessionId, setSessionId] = useState('');
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const currentAudioRef = useRef(null);
   const audioQueueRef = useRef([]);
   const isProcessingRef = useRef(false);
+
+  // Generate session ID on page load
+  useEffect(() => {
+    const generateSessionId = () => {
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(2, 8);
+      return `session-${timestamp}-${random}`;
+    };
+    
+    const newSessionId = generateSessionId();
+    setSessionId(newSessionId);
+    logger.info('New session started:', newSessionId);
+  }, []);
 
   const playNextSegment = useCallback(() => {
     if (audioQueueRef.current.length > 0 && !isProcessingRef.current) {
@@ -30,18 +46,60 @@ function App() {
       };
 
       audio.play().catch(error => {
-        console.error('Error playing audio:', error);
+        logger.error('Error playing audio:', error);
         isProcessingRef.current = false;
+        setError('Error playing audio: ' + error.message);
       });
     }
   }, []);
 
+  const processN8nResponse = async (data) => {
+    try {
+      logger.info('Processing n8n response:', data);
+      
+      // Extract the agent message from n8n response
+      const agentMessage = data.response?.agentMessage;
+      if (!agentMessage) {
+        throw new Error('No agent message in n8n response');
+      }
+
+      // Send the agent message to kokoro for TTS
+      logger.info('Sending to kokoro for TTS:', agentMessage);
+      const ttsResponse = await fetch('http://localhost:5000/api/tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: agentMessage }),
+      });
+
+      const ttsData = await ttsResponse.json();
+      if (!ttsData.success) {
+        throw new Error(ttsData.error || 'TTS conversion failed');
+      }
+
+      // Update state with the response
+      setAiResponse(agentMessage);
+      
+      // Store audio segments and prepare for playback
+      setAudioSegments(ttsData.segments || []);
+      audioQueueRef.current = [...(ttsData.segments || [])];
+      setIsPlaying(true);
+      playNextSegment();
+      
+    } catch (error) {
+      logger.error('Error processing n8n response:', error);
+      setError('Error processing AI response: ' + error.message);
+      setIsPlaying(false);
+    }
+  };
+
   const startRecording = async () => {
     try {
+      setError(null);
+      logger.info('Starting recording...', { sessionId });
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream, {
-        mimeType: 'audio/webm'
-      });
+      mediaRecorderRef.current = new MediaRecorder(stream);
       chunksRef.current = [];
 
       mediaRecorderRef.current.ondataavailable = (e) => {
@@ -51,9 +109,11 @@ function App() {
       };
 
       mediaRecorderRef.current.onstop = async () => {
+        logger.info('Recording stopped, processing audio...', { sessionId });
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.webm');
+        formData.append('sessionId', sessionId);
 
         try {
           const response = await fetch('http://localhost:5000/api/transcribe', {
@@ -63,31 +123,34 @@ function App() {
           const data = await response.json();
           
           if (data.success) {
+            logger.info('Successfully processed audio', { sessionId });
             setTranscription(data.transcription);
-            setAiResponse(data.response.full_text);
             
-            // Store audio segments and prepare for playback
-            setAudioSegments(data.response.segments);
-            audioQueueRef.current = [...data.response.segments];
-            setIsPlaying(true);
-            playNextSegment();
+            // Process n8n response and convert to speech
+            await processN8nResponse(data);
           } else {
-            console.error('Transcription failed:', data.error);
+            const errorMsg = data.error || 'Unknown error occurred';
+            logger.error('Transcription failed:', errorMsg, { sessionId });
+            setError(errorMsg);
           }
         } catch (error) {
-          console.error('Error sending audio to server:', error);
+          const errorMessage = error.message || 'Error connecting to server';
+          logger.error('Error sending audio to server:', error, { sessionId });
+          setError(errorMessage);
         }
       };
 
       mediaRecorderRef.current.start();
       setIsRecording(true);
     } catch (error) {
-      console.error('Error accessing microphone:', error);
+      logger.error('Error accessing microphone:', error, { sessionId });
+      setError('Error accessing microphone: ' + error.message);
     }
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
+      logger.info('Stopping recording...');
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
       setIsRecording(false);
@@ -96,6 +159,7 @@ function App() {
 
   const stopPlayback = () => {
     if (currentAudioRef.current) {
+      logger.info('Stopping audio playback');
       currentAudioRef.current.pause();
       currentAudioRef.current = null;
     }
@@ -126,6 +190,13 @@ function App() {
             </button>
           )}
         </div>
+
+        {error && (
+          <div className="error-message">
+            <h3>Error</h3>
+            <p>{error}</p>
+          </div>
+        )}
 
         {transcription && (
           <div className="transcription">

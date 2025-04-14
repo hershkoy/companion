@@ -75,10 +75,12 @@ def get_ollama_response(prompt):
     else:
         raise Exception(f"Ollama API error: {response.status_code}")
 
-def get_n8n_response(prompt):
+def get_n8n_response(prompt, session_id):
     """Get response from n8n webhook"""
     url = os.getenv('N8N_WEBHOOK_URL')
-    headers = {}
+    headers = {
+        'Content-Type': 'application/json'
+    }
     
     # Add authentication if configured
     auth_token = os.getenv('N8N_AUTH_TOKEN')
@@ -95,25 +97,30 @@ def get_n8n_response(prompt):
         }
     
     data = {
-        "prompt": prompt
+        "sessionId": session_id,
+        "contactMessage": prompt
     }
     
+    print(f"\nSending to n8n for session {session_id}: {data}")
     response = requests.post(url, json=data, headers=headers)
+    
     if response.status_code == 200:
-        return response.json().get('response', '').strip()
+        response_data = response.json()
+        print(f"\nReceived from n8n for session {session_id}: {response_data}")
+        return response_data.get('response', '').strip()
     else:
-        raise Exception(f"n8n webhook error: {response.status_code}")
+        raise Exception(f"n8n webhook error: {response.status_code}, {response.text}")
 
-def get_ai_response(prompt):
+def get_ai_response(prompt, session_id):
     """Get AI response based on configured service"""
     service = os.getenv('AI_SERVICE', 'ollama').lower()
     
-    print(f"\nUsing AI service: {service}")
+    print(f"\nUsing AI service: {service} for session: {session_id}")
     
     if service == 'ollama':
         return get_ollama_response(prompt)
     elif service == 'n8n':
-        return get_n8n_response(prompt)
+        return get_n8n_response(prompt, session_id)
     else:
         raise ValueError(f"Invalid AI_SERVICE configuration: {service}")
 
@@ -158,30 +165,35 @@ def transcribe_audio():
         return jsonify({'error': 'No audio file provided'}), 400
     
     audio_file = request.files['audio']
+    session_id = request.form.get('sessionId', f'fallback-{datetime.now().strftime("%Y%m%d-%H%M%S")}')
     temp_path = None
     
     try:
+        print(f"\nProcessing request for session: {session_id}")
+        
         # Create a temporary file that will be automatically cleaned up
         with tempfile.NamedTemporaryFile(suffix='.webm', delete=False) as temp_audio:
             temp_path = temp_audio.name
             audio_file.save(temp_path)
         
-            # Transcribe the audio using Whisper
-        segments, info = whisper_model.transcribe(temp_path, beam_size=5)
+        # Transcribe the audio using Whisper
+        segments, info = whisper_model.transcribe(temp_path, beam_size=5, language="en", task="transcribe")
         transcription = " ".join(segment.text for segment in segments)
         
-        # Log the transcription
+        # Log the transcription and language info
         print("\nWhisper Transcription:")
         print("-" * 40)
+        print(f"Session ID: {session_id}")
+        print(f"Language: {info.language} (probability: {info.language_probability:.2f})")
         print(transcription)
         print("-" * 40)
         
         # Get AI response based on configured service
-        ai_response = get_ai_response(transcription.strip())
+        ai_response = get_ai_response(transcription.strip(), session_id)
         
         # If response is a dict (null case), handle it differently
         if isinstance(ai_response, dict):
-            print("\nNull input detected, returning status response")
+            print(f"\nNull input detected for session {session_id}, returning status response")
             return jsonify({
                 'success': True,
                 'transcription': transcription.strip(),
@@ -198,6 +210,7 @@ def transcribe_audio():
         
         print("\nAI Response (after filtering):")
         print("-" * 40)
+        print(f"Session ID: {session_id}")
         print(ai_response)
         print("-" * 40)
         
@@ -252,18 +265,18 @@ def transcribe_audio():
                 'full_text': ai_response,
                 'segments': results
             },
-                'language': {
-                    'detected': info.language,
-                    'probability': float(info.language_probability)
-                }
-            })
-            
-        except Exception as e:
+            'language': {
+                'detected': info.language,
+                'probability': float(info.language_probability)
+            }
+        })
+    
+    except Exception as e:
         print(f"Error during processing: {str(e)}")
-            return jsonify({
-                'success': False,
-                'error': str(e)
-            }), 500
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
     
     finally:
         # Clean up the temporary audio file after we're done with it

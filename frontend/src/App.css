@@ -83,6 +83,30 @@
   transform: scale(1.05);
 }
 
+.error-message {
+  background-color: rgba(244, 67, 54, 0.1);
+  border-left: 4px solid #f44336;
+  padding: 1rem 2rem;
+  margin: 1rem 0;
+  border-radius: 4px;
+  width: 80%;
+  max-width: 800px;
+  text-align: left;
+}
+
+.error-message h3 {
+  color: #f44336;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.2rem;
+}
+
+.error-message p {
+  margin: 0;
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
 @keyframes pulse {
   0% {
     transform: scale(1);
