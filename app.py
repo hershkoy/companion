@@ -12,13 +12,28 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 import base64
-import subprocess
+from dotenv import load_dotenv, find_dotenv
+from pathlib import Path
+
+# Load environment variables
+env_path = find_dotenv()
+if not env_path:
+    raise RuntimeError("Could not find .env file")
+
+print(f"\nLoading environment from: {env_path}")
+load_dotenv(env_path, override=True)
+
+# Debug: Print environment variables at startup
+print("\nEnvironment Variables:")
+print(f"AI_SERVICE={os.getenv('AI_SERVICE')}")
+print(f"N8N_WEBHOOK_URL={os.getenv('N8N_WEBHOOK_URL')}")
+print(f"OLLAMA_URL={os.getenv('OLLAMA_URL')}")
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # Initialize models
-print("Loading models...")
+print("\nLoading models...")
 whisper_model = WhisperModel("large-v3", device="cuda", compute_type="float16")
 kokoro_pipeline = KPipeline(lang_code='a', device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
 print("Models loaded successfully!")
@@ -38,6 +53,69 @@ def convert_webm_to_wav(input_path, output_path):
     except subprocess.CalledProcessError as e:
         print(f"FFmpeg error: {e.stderr.decode()}")
         return False
+
+def get_ollama_response(prompt):
+    """Get response from Ollama model"""
+    url = os.getenv('OLLAMA_URL', 'http://localhost:11434/api/generate')
+    data = {
+        "model": os.getenv('OLLAMA_MODEL', 'deepseek-r1'),
+        "prompt": prompt,
+        "stream": False
+    }
+    
+    response = requests.post(url, json=data)
+    if response.status_code == 200:
+        response_text = response.json()['response']
+        # Remove the thinking part enclosed in <think> tags
+        response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
+        # Clean up any extra newlines and spaces
+        response_text = re.sub(r'\n+', ' ', response_text)
+        response_text = re.sub(r'\s+', ' ', response_text)
+        return response_text.strip()
+    else:
+        raise Exception(f"Ollama API error: {response.status_code}")
+
+def get_n8n_response(prompt):
+    """Get response from n8n webhook"""
+    url = os.getenv('N8N_WEBHOOK_URL')
+    headers = {}
+    
+    # Add authentication if configured
+    auth_token = os.getenv('N8N_AUTH_TOKEN')
+    if auth_token:
+        headers['Authorization'] = f'Bearer {auth_token}'
+    
+    # Handle null input case
+    if not prompt or prompt.strip() == '':
+        return {
+            "action": "Final Answer",
+            "action_input": {
+                "status": "null"
+            }
+        }
+    
+    data = {
+        "prompt": prompt
+    }
+    
+    response = requests.post(url, json=data, headers=headers)
+    if response.status_code == 200:
+        return response.json().get('response', '').strip()
+    else:
+        raise Exception(f"n8n webhook error: {response.status_code}")
+
+def get_ai_response(prompt):
+    """Get AI response based on configured service"""
+    service = os.getenv('AI_SERVICE', 'ollama').lower()
+    
+    print(f"\nUsing AI service: {service}")
+    
+    if service == 'ollama':
+        return get_ollama_response(prompt)
+    elif service == 'n8n':
+        return get_n8n_response(prompt)
+    else:
+        raise ValueError(f"Invalid AI_SERVICE configuration: {service}")
 
 def process_sentence(sentence, pipeline):
     """Process a single sentence with Kokoro and return the audio data"""
@@ -74,27 +152,6 @@ def process_sentence(sentence, pipeline):
         return np.concatenate(audio_chunks)
     return None
 
-def get_ollama_response(prompt):
-    """Get response from Ollama Deepseek model"""
-    url = "http://localhost:11434/api/generate"
-    data = {
-        "model": "deepseek-r1",
-        "prompt": prompt,
-        "stream": False
-    }
-    
-    response = requests.post(url, json=data)
-    if response.status_code == 200:
-        response_text = response.json()['response']
-        # Remove the thinking part enclosed in <think> tags
-        response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
-        # Clean up any extra newlines and spaces
-        response_text = re.sub(r'\n+', ' ', response_text)
-        response_text = re.sub(r'\s+', ' ', response_text)
-        return response_text.strip()
-    else:
-        raise Exception(f"Ollama API error: {response.status_code}")
-
 @app.route('/api/transcribe', methods=['POST'])
 def transcribe_audio():
     if 'audio' not in request.files:
@@ -109,7 +166,7 @@ def transcribe_audio():
             temp_path = temp_audio.name
             audio_file.save(temp_path)
         
-        # Transcribe the audio using Whisper
+            # Transcribe the audio using Whisper
         segments, info = whisper_model.transcribe(temp_path, beam_size=5)
         transcription = " ".join(segment.text for segment in segments)
         
@@ -119,16 +176,33 @@ def transcribe_audio():
         print(transcription)
         print("-" * 40)
         
-        # Get response from Ollama
-        ollama_response = get_ollama_response(transcription.strip())
+        # Get AI response based on configured service
+        ai_response = get_ai_response(transcription.strip())
         
-        print("\nDeepseek Response (after filtering):")
+        # If response is a dict (null case), handle it differently
+        if isinstance(ai_response, dict):
+            print("\nNull input detected, returning status response")
+            return jsonify({
+                'success': True,
+                'transcription': transcription.strip(),
+                'response': {
+                    'full_text': '',
+                    'segments': []
+                },
+                'status': 'null',
+                'language': {
+                    'detected': info.language,
+                    'probability': float(info.language_probability)
+                }
+            })
+        
+        print("\nAI Response (after filtering):")
         print("-" * 40)
-        print(ollama_response)
+        print(ai_response)
         print("-" * 40)
         
         # Split response into sentences
-        sentences = [s.strip() for s in re.split(r'[.!?]+', ollama_response) if s.strip()]
+        sentences = [s.strip() for s in re.split(r'[.!?]+', ai_response) if s.strip()]
         
         # Process sentences in parallel with Kokoro
         MAX_WORKERS = 2 if torch.cuda.is_available() else 4
@@ -175,21 +249,21 @@ def transcribe_audio():
             'success': True,
             'transcription': transcription.strip(),
             'response': {
-                'full_text': ollama_response,
+                'full_text': ai_response,
                 'segments': results
             },
-            'language': {
-                'detected': info.language,
-                'probability': float(info.language_probability)
-            }
-        })
-    
-    except Exception as e:
+                'language': {
+                    'detected': info.language,
+                    'probability': float(info.language_probability)
+                }
+            })
+            
+        except Exception as e:
         print(f"Error during processing: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
     
     finally:
         # Clean up the temporary audio file after we're done with it
@@ -200,7 +274,22 @@ def transcribe_audio():
                 print(f"Warning: Could not delete temporary file {temp_path}: {e}")
 
 if __name__ == '__main__':
+    service = os.getenv('AI_SERVICE', 'ollama').lower()
     print("\nTranscription Service Started")
+    print("-" * 80)
+    print(f"AI Service Configuration:")
+    print(f"Service Type: {service.upper()}")
+    
+    if service == 'ollama':
+        print(f"Ollama URL: {os.getenv('OLLAMA_URL', 'http://localhost:11434/api/generate')}")
+        print(f"Model: {os.getenv('OLLAMA_MODEL', 'deepseek-r1')}")
+    elif service == 'n8n':
+        print(f"n8n Webhook URL: {os.getenv('N8N_WEBHOOK_URL', 'Not configured')}")
+        print("Authentication: " + ("Enabled" if os.getenv('N8N_AUTH_TOKEN') else "Disabled"))
+    else:
+        print(f"Warning: Unknown service type '{service}'")
+    
+    print("-" * 80)
     print("Waiting for audio input...")
     print("-" * 80)
     app.run(debug=True, port=5000) 

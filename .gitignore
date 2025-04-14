@@ -53,3 +53,5 @@ output/
 *.ogg
 temp/
 logs/
+
+.env
