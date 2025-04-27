@@ -55,3 +55,4 @@ temp/
 logs/
 
 .env
+kokoro.log

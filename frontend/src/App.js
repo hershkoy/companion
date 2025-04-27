@@ -63,7 +63,18 @@ function App() {
         throw new Error('No agent message in n8n response');
       }
 
-      // Send the agent message to kokoro for TTS
+      // If we already have audio segments, use them directly
+      if (data.response?.segments?.length > 0) {
+        logger.info('Using pre-generated audio segments');
+        setAiResponse(agentMessage);
+        setAudioSegments(data.response.segments);
+        audioQueueRef.current = [...data.response.segments];
+        setIsPlaying(true);
+        playNextSegment();
+        return;
+      }
+
+      // Otherwise, send to TTS service
       logger.info('Sending to kokoro for TTS:', agentMessage);
       const ttsResponse = await fetch('http://localhost:5000/api/tts', {
         method: 'POST',

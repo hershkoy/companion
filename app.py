@@ -14,29 +14,63 @@ import requests
 import base64
 from dotenv import load_dotenv, find_dotenv
 from pathlib import Path
+import logging
+import sys
+
+# Configure logging
+def setup_logger():
+    logger = logging.getLogger('kokoro')
+    logger.setLevel(logging.INFO)
+    
+    # Create console handler with a higher log level
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    
+    # Create file handler which logs even debug messages
+    file_handler = logging.FileHandler('kokoro.log', encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)
+    
+    # Create formatters and add it to the handlers
+    console_format = logging.Formatter('\n%(asctime)s [%(levelname)s] %(message)s')
+    file_format = logging.Formatter('%(asctime)s [%(levelname)s] [%(name)s.%(funcName)s:%(lineno)d] %(message)s')
+    
+    console_handler.setFormatter(console_format)
+    file_handler.setFormatter(file_format)
+    
+    # Add the handlers to the logger
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+    
+    # Set stdout encoding to utf-8
+    if sys.stdout.encoding != 'utf-8':
+        sys.stdout.reconfigure(encoding='utf-8')
+    
+    return logger
+
+logger = setup_logger()
 
 # Load environment variables
 env_path = find_dotenv()
 if not env_path:
     raise RuntimeError("Could not find .env file")
 
-print(f"\nLoading environment from: {env_path}")
+logger.info(f"Loading environment from: {env_path}")
 load_dotenv(env_path, override=True)
 
-# Debug: Print environment variables at startup
-print("\nEnvironment Variables:")
-print(f"AI_SERVICE={os.getenv('AI_SERVICE')}")
-print(f"N8N_WEBHOOK_URL={os.getenv('N8N_WEBHOOK_URL')}")
-print(f"OLLAMA_URL={os.getenv('OLLAMA_URL')}")
+# Debug: Log environment variables at startup
+logger.info("Environment Variables:")
+logger.info(f"AI_SERVICE={os.getenv('AI_SERVICE')}")
+logger.info(f"N8N_WEBHOOK_URL={os.getenv('N8N_WEBHOOK_URL')}")
+logger.info(f"OLLAMA_URL={os.getenv('OLLAMA_URL')}")
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # Initialize models
-print("\nLoading models...")
+logger.info("Loading models...")
 whisper_model = WhisperModel("large-v3", device="cuda", compute_type="float16")
 kokoro_pipeline = KPipeline(lang_code='a', device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
-print("Models loaded successfully!")
+logger.info("Models loaded successfully!")
 
 def convert_webm_to_wav(input_path, output_path):
     """Convert webm file to wav using ffmpeg"""
@@ -51,29 +85,45 @@ def convert_webm_to_wav(input_path, output_path):
         ], check=True, capture_output=True)
         return True
     except subprocess.CalledProcessError as e:
-        print(f"FFmpeg error: {e.stderr.decode()}")
+        logger.error(f"FFmpeg error: {e.stderr.decode()}")
         return False
 
 def get_ollama_response(prompt):
-    """Get response from Ollama model"""
+    """Get response from Ollama model with GPU acceleration"""
     url = os.getenv('OLLAMA_URL', 'http://localhost:11434/api/generate')
     data = {
         "model": os.getenv('OLLAMA_MODEL', 'deepseek-r1'),
         "prompt": prompt,
-        "stream": False
+        "stream": False,
+        "options": {
+            "num_gpu": 33,  # Use all GPU layers
+            "num_thread": 20,  # More CPU threads
+            "temperature": 0.7,  # Lower temperature for faster, more focused responses
+            "top_p": 0.9,  # Nucleus sampling parameter
+            "repeat_penalty": 1.1,  # Penalize repetition
+            "num_ctx": 2048  # Context window size
+        }
     }
     
-    response = requests.post(url, json=data)
-    if response.status_code == 200:
-        response_text = response.json()['response']
-        # Remove the thinking part enclosed in <think> tags
-        response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
-        # Clean up any extra newlines and spaces
-        response_text = re.sub(r'\n+', ' ', response_text)
-        response_text = re.sub(r'\s+', ' ', response_text)
-        return response_text.strip()
-    else:
-        raise Exception(f"Ollama API error: {response.status_code}")
+    try:
+        # Set a reasonable timeout
+        response = requests.post(url, json=data, timeout=30)
+        response.raise_for_status()  # Raise exception for bad status codes
+        
+        if response.status_code == 200:
+            response_text = response.json()['response']
+            # Remove the thinking part enclosed in <think> tags
+            response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
+            # Clean up any extra newlines and spaces
+            response_text = re.sub(r'\n+', ' ', response_text)
+            response_text = re.sub(r'\s+', ' ', response_text)
+            return response_text.strip()
+        else:
+            raise Exception(f"Ollama API error: {response.status_code}")
+    except requests.exceptions.Timeout:
+        raise Exception("Ollama request timed out after 30 seconds")
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Ollama API request failed: {str(e)}")
 
 def get_n8n_response(prompt, session_id):
     """Get response from n8n webhook"""
@@ -101,13 +151,20 @@ def get_n8n_response(prompt, session_id):
         "contactMessage": prompt
     }
     
-    print(f"\nSending to n8n for session {session_id}: {data}")
+    logger.info(f"Sending to n8n for session {session_id}: {data}")
     response = requests.post(url, json=data, headers=headers)
     
     if response.status_code == 200:
         response_data = response.json()
-        print(f"\nReceived from n8n for session {session_id}: {response_data}")
-        return response_data.get('response', '').strip()
+        logger.info(f"Received from n8n for session {session_id}: {response_data}")
+        
+        # Extract the agent message from the n8n response
+        agent_message = response_data.get('agentMessage', '')
+        if not agent_message:
+            logger.error(f"No agent message in n8n response: {response_data}")
+            raise Exception("No agent message in n8n response")
+            
+        return agent_message.strip()
     else:
         raise Exception(f"n8n webhook error: {response.status_code}, {response.text}")
 
@@ -115,7 +172,7 @@ def get_ai_response(prompt, session_id):
     """Get AI response based on configured service"""
     service = os.getenv('AI_SERVICE', 'ollama').lower()
     
-    print(f"\nUsing AI service: {service} for session: {session_id}")
+    logger.info(f"Using AI service: {service} for session: {session_id}")
     
     if service == 'ollama':
         return get_ollama_response(prompt)
@@ -126,38 +183,42 @@ def get_ai_response(prompt, session_id):
 
 def process_sentence(sentence, pipeline):
     """Process a single sentence with Kokoro and return the audio data"""
-    print(f"\nProcessing TTS: {sentence[:50]}...")
+    logger.info(f"Processing TTS: {sentence[:50]}...")
     
     # Add proper punctuation if needed
     if not sentence.strip().endswith(('.', '!', '?')):
         sentence = sentence + "."
     
-    # Generate speech for this sentence
-    audio_chunks = []
-    audio_generator = pipeline(sentence, voice="af_heart", speed=1.5)
-    
-    for chunk in audio_generator:
-        # Get the audio data from the Result object
-        if hasattr(chunk, 'audio'):
-            chunk_data = chunk.audio
-        else:
-            chunk_data = chunk
-
-        # Convert to CUDA if available
-        if isinstance(chunk_data, torch.Tensor):
-            if torch.cuda.is_available() and not chunk_data.is_cuda:
-                chunk_data = chunk_data.cuda()
-            if chunk_data.is_cuda:
-                chunk_data = chunk_data.cpu()
-            chunk_data = chunk_data.detach().numpy()
+    try:
+        # Generate speech for this sentence
+        audio_chunks = []
+        audio_generator = pipeline(sentence, voice="af_heart", speed=1.5)
         
-        # Ensure correct data type
-        chunk_data = np.asarray(chunk_data, dtype=np.float32)
-        audio_chunks.append(chunk_data.flatten())
+        for chunk in audio_generator:
+            # Get the audio data from the Result object
+            if hasattr(chunk, 'audio'):
+                chunk_data = chunk.audio
+            else:
+                chunk_data = chunk
 
-    if audio_chunks:
-        return np.concatenate(audio_chunks)
-    return None
+            # Convert to CUDA if available
+            if isinstance(chunk_data, torch.Tensor):
+                if torch.cuda.is_available() and not chunk_data.is_cuda:
+                    chunk_data = chunk_data.cuda()
+                if chunk_data.is_cuda:
+                    chunk_data = chunk_data.cpu()
+                chunk_data = chunk_data.detach().numpy()
+            
+            # Ensure correct data type
+            chunk_data = np.asarray(chunk_data, dtype=np.float32)
+            audio_chunks.append(chunk_data.flatten())
+
+        if audio_chunks:
+            return np.concatenate(audio_chunks)
+        return None
+    except Exception as e:
+        logger.error(f"Error processing TTS for sentence: {str(e)}")
+        return None
 
 @app.route('/api/transcribe', methods=['POST'])
 def transcribe_audio():
@@ -167,9 +228,10 @@ def transcribe_audio():
     audio_file = request.files['audio']
     session_id = request.form.get('sessionId', f'fallback-{datetime.now().strftime("%Y%m%d-%H%M%S")}')
     temp_path = None
+    wav_files = []  # Keep track of temporary wav files
     
     try:
-        print(f"\nProcessing request for session: {session_id}")
+        logger.info(f"Processing request for session: {session_id}")
         
         # Create a temporary file that will be automatically cleaned up
         with tempfile.NamedTemporaryFile(suffix='.webm', delete=False) as temp_audio:
@@ -181,24 +243,31 @@ def transcribe_audio():
         transcription = " ".join(segment.text for segment in segments)
         
         # Log the transcription and language info
-        print("\nWhisper Transcription:")
-        print("-" * 40)
-        print(f"Session ID: {session_id}")
-        print(f"Language: {info.language} (probability: {info.language_probability:.2f})")
-        print(transcription)
-        print("-" * 40)
+        logger.info("Whisper Transcription:")
+        logger.info("-" * 40)
+        logger.info(f"Session ID: {session_id}")
+        logger.info(f"Language: {info.language} (probability: {info.language_probability:.2f})")
+        logger.info(transcription)
+        logger.info("-" * 40)
         
         # Get AI response based on configured service
-        ai_response = get_ai_response(transcription.strip(), session_id)
+        try:
+            ai_response = get_ai_response(transcription.strip(), session_id)
+        except Exception as e:
+            logger.error(f"Error getting AI response: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
         
         # If response is a dict (null case), handle it differently
         if isinstance(ai_response, dict):
-            print(f"\nNull input detected for session {session_id}, returning status response")
+            logger.info(f"Null input detected for session {session_id}, returning status response")
             return jsonify({
                 'success': True,
                 'transcription': transcription.strip(),
                 'response': {
-                    'full_text': '',
+                    'agentMessage': '',
                     'segments': []
                 },
                 'status': 'null',
@@ -208,11 +277,11 @@ def transcribe_audio():
                 }
             })
         
-        print("\nAI Response (after filtering):")
-        print("-" * 40)
-        print(f"Session ID: {session_id}")
-        print(ai_response)
-        print("-" * 40)
+        logger.info("AI Response (after filtering):")
+        logger.info("-" * 40)
+        logger.info(f"Session ID: {session_id}")
+        logger.info(ai_response)
+        logger.info("-" * 40)
         
         # Split response into sentences
         sentences = [s.strip() for s in re.split(r'[.!?]+', ai_response) if s.strip()]
@@ -236,16 +305,14 @@ def transcribe_audio():
                 try:
                     audio_data = future.result()
                     if audio_data is not None:
-                        # Convert audio data to base64
-                        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_wav:
-                            wav_path = temp_wav.name
-                            sf.write(wav_path, audio_data, 22050)
-                            with open(wav_path, 'rb') as audio_file:
-                                audio_base64 = base64.b64encode(audio_file.read()).decode('utf-8')
-                            try:
-                                os.unlink(wav_path)
-                            except Exception as e:
-                                print(f"Warning: Could not delete temporary wav file: {e}")
+                        # Create unique temporary wav file
+                        wav_file = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+                        wav_files.append(wav_file.name)
+                        sf.write(wav_file.name, audio_data, 22050)
+                        
+                        # Read and encode the audio file
+                        with open(wav_file.name, 'rb') as audio_file:
+                            audio_base64 = base64.b64encode(audio_file.read()).decode('utf-8')
                         
                         # Store result with index for ordering
                         results[sentence_idx] = {
@@ -253,7 +320,7 @@ def transcribe_audio():
                             'audio': audio_base64
                         }
                 except Exception as e:
-                    print(f"Error processing sentence {sentence_idx + 1}: {str(e)}")
+                    logger.error(f"Error processing sentence {sentence_idx + 1}: {str(e)}")
         
         # Filter out None results
         results = [r for r in results if r is not None]
@@ -262,7 +329,7 @@ def transcribe_audio():
             'success': True,
             'transcription': transcription.strip(),
             'response': {
-                'full_text': ai_response,
+                'agentMessage': ai_response,
                 'segments': results
             },
             'language': {
@@ -272,37 +339,45 @@ def transcribe_audio():
         })
     
     except Exception as e:
-        print(f"Error during processing: {str(e)}")
+        logger.error(f"Error during processing: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
     
     finally:
-        # Clean up the temporary audio file after we're done with it
+        # Clean up all temporary files
         if temp_path and os.path.exists(temp_path):
             try:
                 os.unlink(temp_path)
             except Exception as e:
-                print(f"Warning: Could not delete temporary file {temp_path}: {e}")
+                logger.warning(f"Could not delete temporary file {temp_path}: {e}")
+        
+        # Clean up wav files
+        for wav_file in wav_files:
+            try:
+                if os.path.exists(wav_file):
+                    os.unlink(wav_file)
+            except Exception as e:
+                logger.warning(f"Could not delete temporary wav file {wav_file}: {e}")
 
 if __name__ == '__main__':
     service = os.getenv('AI_SERVICE', 'ollama').lower()
-    print("\nTranscription Service Started")
-    print("-" * 80)
-    print(f"AI Service Configuration:")
-    print(f"Service Type: {service.upper()}")
+    logger.info("Transcription Service Started")
+    logger.info("-" * 80)
+    logger.info("AI Service Configuration:")
+    logger.info(f"Service Type: {service.upper()}")
     
     if service == 'ollama':
-        print(f"Ollama URL: {os.getenv('OLLAMA_URL', 'http://localhost:11434/api/generate')}")
-        print(f"Model: {os.getenv('OLLAMA_MODEL', 'deepseek-r1')}")
+        logger.info(f"Ollama URL: {os.getenv('OLLAMA_URL', 'http://localhost:11434/api')}")
+        logger.info(f"Model: {os.getenv('OLLAMA_MODEL', 'deepseek-r1')}")
     elif service == 'n8n':
-        print(f"n8n Webhook URL: {os.getenv('N8N_WEBHOOK_URL', 'Not configured')}")
-        print("Authentication: " + ("Enabled" if os.getenv('N8N_AUTH_TOKEN') else "Disabled"))
+        logger.info(f"n8n Webhook URL: {os.getenv('N8N_WEBHOOK_URL', 'Not configured')}")
+        logger.info("Authentication: " + ("Enabled" if os.getenv('N8N_AUTH_TOKEN') else "Disabled"))
     else:
-        print(f"Warning: Unknown service type '{service}'")
+        logger.warning(f"Unknown service type '{service}'")
     
-    print("-" * 80)
-    print("Waiting for audio input...")
-    print("-" * 80)
+    logger.info("-" * 80)
+    logger.info("Waiting for audio input...")
+    logger.info("-" * 80)
     app.run(debug=True, port=5000) 
