@@ -170,6 +170,7 @@
   background-color: #444654;
   border-radius: 10px;
   padding: 15px;
+  text-align: left;
 }
 
 .system-prompt-header {
@@ -179,9 +180,87 @@
   margin-bottom: 10px;
 }
 
-.system-prompt-header h3 {
-  margin: 0;
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.context-window-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.context-window-control span {
   color: #10a37f;
+  font-size: 14px;
+}
+
+.context-window-input {
+  width: 80px;
+  padding: 4px 8px;
+  border: 1px solid #10a37f;
+  border-radius: 4px;
+  background-color: #343541;
+  color: white;
+  font-size: 14px;
+}
+
+.system-prompt-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #10a37f;
+  border-radius: 4px;
+  background-color: #343541;
+  color: white;
+  font-size: 14px;
+  resize: vertical;
+  text-align: left;
+}
+
+.system-prompt-display {
+  padding: 10px;
+  background-color: #343541;
+  border-radius: 4px;
+  color: white;
+  font-size: 14px;
+  white-space: pre-wrap;
+  text-align: left;
+}
+
+.message.system {
+  align-self: center;
+  background-color: #10a37f;
+  color: white;
+  font-style: italic;
+}
+
+.token-count {
+  font-size: 0.8em;
+  color: #666;
+  margin-top: 4px;
+  text-align: right;
+  font-style: italic;
+}
+
+.message.ai .token-count {
+  color: #4a90e2;
+}
+
+.message.user .token-count {
+  color: #45a049;
+}
+
+.message.system .token-count {
+  color: #666;
+}
+
+.context-window-container,
+.context-window-header,
+.context-window-header h3,
+.context-window-display {
+  display: none;
 }
 
 .edit-prompt-button {
@@ -198,29 +277,7 @@
   background-color: #0d8c6d;
 }
 
-.system-prompt-input {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #10a37f;
-  border-radius: 4px;
-  background-color: #343541;
-  color: white;
-  font-size: 14px;
-  resize: vertical;
-}
-
-.system-prompt-display {
-  padding: 10px;
-  background-color: #343541;
-  border-radius: 4px;
-  color: white;
-  font-size: 14px;
-  white-space: pre-wrap;
-}
-
-.message.system {
-  align-self: center;
-  background-color: #10a37f;
-  color: white;
-  font-style: italic;
+.system-prompt-header h3 {
+  margin: 0;
+  color: #10a37f;
 }

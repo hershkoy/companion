@@ -99,6 +99,8 @@ def get_ollama_response(prompt):
         "Be friendly, direct, and natural."
     )
 
+    print("prompt", prompt)
+
     full_prompt = f"{system_prompt}\n\nUser: {prompt}\nAssistant:"
 
     data = {

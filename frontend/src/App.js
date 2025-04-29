@@ -2,6 +2,31 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import './App.css';
 import logger from './utils/logger';
 
+// Simple token count estimation (approximately 4 chars per token)
+const estimateTokenCount = (text) => {
+  return Math.ceil(text.length / 4);
+};
+
+// Get conversation history within token limit
+const getConversationHistory = (conversation, maxTokens) => {
+  const history = [];
+  let totalTokens = 0;
+
+  // Start from the end (most recent messages)
+  for (let i = conversation.length - 1; i >= 0; i--) {
+    const message = conversation[i];
+    if (message.type === 'system') continue; // Skip system messages
+    
+    const tokens = estimateTokenCount(message.text);
+    if (totalTokens + tokens > maxTokens) break;
+    
+    history.unshift(message);
+    totalTokens += tokens;
+  }
+
+  return history;
+};
+
 function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [conversation, setConversation] = useState([]);
@@ -12,6 +37,8 @@ function App() {
     `You are a helpful and conversational assistant. Match the length of the user's message most of the time. Only elaborate if it is necessary to clarify or explain something important. Be friendly, direct, and natural.`
   );
   const [isEditingPrompt, setIsEditingPrompt] = useState(false);
+  const [numCtx, setNumCtx] = useState(2048);
+  const [isEditingNumCtx, setIsEditingNumCtx] = useState(false);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const currentAudioRef = useRef(null);
@@ -135,6 +162,11 @@ function App() {
         formData.append('audio', audioBlob, 'recording.webm');
         formData.append('sessionId', sessionId);
         formData.append('systemPrompt', systemPrompt);
+        
+        // Add conversation history within token limit
+        const maxHistoryTokens = Math.floor(numCtx * 0.75);
+        const history = getConversationHistory(conversation, maxHistoryTokens);
+        formData.append('conversationHistory', JSON.stringify(history));
 
         try {
           const response = await fetch('http://localhost:5000/api/transcribe', {
@@ -145,8 +177,10 @@ function App() {
           
           if (data.success) {
             logger.info('Successfully processed audio', { sessionId });
-            // Add user message to conversation immediately after transcription
-            setConversation(prev => [...prev, { type: 'user', text: data.transcription }]);
+            // Show transcription immediately
+            if (data.transcription) {
+              setConversation(prev => [...prev, { type: 'user', text: data.transcription }]);
+            }
             
             // Process n8n response and convert to speech
             await processN8nResponse(data);
@@ -203,12 +237,24 @@ function App() {
         <div className="system-prompt-container">
           <div className="system-prompt-header">
             <h3>System Prompt</h3>
-            <button 
-              onClick={() => setIsEditingPrompt(!isEditingPrompt)}
-              className="edit-prompt-button"
-            >
-              {isEditingPrompt ? 'Save' : 'Edit'}
-            </button>
+            <div className="header-controls">
+              <div className="context-window-control">
+                <span>Context:</span>
+                <input
+                  type="number"
+                  value={numCtx}
+                  onChange={(e) => setNumCtx(Math.max(1, parseInt(e.target.value) || 0))}
+                  className="context-window-input"
+                  min="1"
+                />
+              </div>
+              <button 
+                onClick={() => setIsEditingPrompt(!isEditingPrompt)}
+                className="edit-prompt-button"
+              >
+                {isEditingPrompt ? 'Save' : 'Edit'}
+              </button>
+            </div>
           </div>
           {isEditingPrompt ? (
             <textarea
@@ -230,6 +276,9 @@ function App() {
               <div key={index} className={`message ${message.type}`}>
                 <div className="message-content">
                   {message.text}
+                  <div className="token-count">
+                    ~{estimateTokenCount(message.text)} tokens
+                  </div>
                 </div>
               </div>
             ))}
