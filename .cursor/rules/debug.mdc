@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+if I say `/debug` it is a shorthand to "use getNetworkLogs and getConsoleLogs tool"

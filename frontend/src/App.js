@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import './App.css';
 import logger from './utils/logger';
 import ChatList from './components/ChatList';
+import wsManager from './utils/websocket';
 
 // Simple token count estimation (approximately 4 chars per token)
 const estimateTokenCount = (text) => {
@@ -47,6 +48,12 @@ const getConversationHistory = (conversation, maxTokens) => {
 // Add WebSocket connection
 const WS_URL = 'ws://localhost:5000/ws';
 
+// Add a stable reference outside the component
+const globalWsRef = {
+  instance: null,
+  isInitializing: false
+};
+
 function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [conversation, setConversation] = useState([]);
@@ -67,87 +74,93 @@ function App() {
   const isProcessingRef = useRef(false);
   const messagesEndRef = useRef(null);
   const [wsConnected, setWsConnected] = useState(false);
-  const wsRef = useRef(null);
+  const initRef = useRef(false);
+  const reconnectTimeoutRef = useRef(null);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
-  // Load sessions only on mount
-  useEffect(() => {
-    loadSessions();
-  }, []);
-
-  // Initialize WebSocket connection
-  useEffect(() => {
-    const connectWebSocket = () => {
-      wsRef.current = new WebSocket(WS_URL);
-
-      wsRef.current.onopen = () => {
-        logger.info('WebSocket connected');
-        setWsConnected(true);
-      };
-
-      wsRef.current.onclose = () => {
-        logger.info('WebSocket disconnected');
-        setWsConnected(false);
-        // Attempt to reconnect after 5 seconds
-        setTimeout(connectWebSocket, 5000);
-      };
-
-      wsRef.current.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'title_update') {
-            logger.info('Received title update:', data);
-            // Update the session title and reload sessions to get latest data
-            loadSessions();
-          }
-        } catch (error) {
-          logger.error('Error processing WebSocket message:', error);
-        }
-      };
-    };
-
-    connectWebSocket();
-
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-    };
-  }, []);
-
   // Load sessions from the backend
-  const loadSessions = async () => {
+  const loadSessions = useCallback(async () => {
     try {
+      logger.info('[Sessions] Fetching sessions from backend');
       const response = await fetch('http://localhost:5000/api/sessions');
       const data = await response.json();
       if (data.success) {
-        setSessions(data.sessions);
-        // If no current session, select the most recent one
-        if (!sessionId && data.sessions.length > 0) {
-          await selectSession(data.sessions[0].id);
-        }
-        // Update current session data if it exists
-        else if (sessionId) {
-          const currentSession = data.sessions.find(s => s.id === sessionId);
-          if (currentSession) {
-            // Update session data if needed
-            const sessionResponse = await fetch(`http://localhost:5000/api/sessions/${sessionId}/messages`);
-            const sessionData = await sessionResponse.json();
-            if (sessionData.success) {
-              setConversation(sessionData.messages);
-            }
+        logger.info(`[Sessions] Loaded ${data.sessions.length} sessions`);
+        setSessions(prevSessions => {
+          const newSessions = data.sessions;
+          // If we have a current session, make sure it stays active
+          if (sessionId) {
+            logger.info(`[Sessions] Preserving active state for session ${sessionId}`);
+            return newSessions.map(s => ({
+              ...s,
+              isActive: s.id === sessionId
+            }));
           }
-        }
+          // If no current session but we have sessions, select the first one
+          if (newSessions.length > 0 && !sessionId) {
+            const firstSession = newSessions[0];
+            logger.info(`[Sessions] Auto-selecting first session: ${firstSession.id}`);
+            setSessionId(firstSession.id);
+            return newSessions.map(s => ({
+              ...s,
+              isActive: s.id === firstSession.id
+            }));
+          }
+          return newSessions;
+        });
       }
     } catch (error) {
-      logger.error('Error loading sessions:', error);
+      logger.error('[Sessions] Error loading sessions:', error);
       setError('Error loading chat sessions');
     }
-  };
+  }, [sessionId]);
+
+  // Load initial sessions only once
+  useEffect(() => {
+    if (!initRef.current) {
+      logger.info('[Init] First-time initialization');
+      initRef.current = true;
+      loadSessions();
+    } else {
+      logger.debug('[Init] Skipping duplicate initialization');
+    }
+  }, [loadSessions]);
+
+  // Initialize WebSocket connection
+  useEffect(() => {
+    const handleWebSocket = (event, data) => {
+      switch (event) {
+        case 'connected':
+          setWsConnected(true);
+          break;
+        case 'disconnected':
+          setWsConnected(false);
+          break;
+        case 'message':
+          if (data.type === 'title_update') {
+            logger.info(`[WebSocket] Updating title for session ${data.session_id}`);
+            setSessions(prev => prev.map(s => 
+              s.id === data.session_id 
+                ? { ...s, title: data.title }
+                : s
+            ));
+          }
+          break;
+      }
+    };
+
+    wsManager.addListener(handleWebSocket);
+    wsManager.connect();
+
+    return () => {
+      wsManager.removeListener(handleWebSocket);
+    };
+  }, []); // No dependencies needed for WebSocket setup
 
   // Create a new chat session
   const createSession = async () => {
     try {
+      logger.info('[Sessions] Creating new chat session');
       const response = await fetch('http://localhost:5000/api/sessions', {
         method: 'POST',
         headers: {
@@ -157,13 +170,20 @@ function App() {
       });
       const data = await response.json();
       if (data.success) {
-        // Add new session to the list and select it
-        setSessions(prev => [data.session, ...prev]);
-        await selectSession(data.session.id);
-        setConversation([]); // Clear conversation for new chat
+        logger.info(`[Sessions] Created new session: ${data.session.id}`);
+        const newSession = {
+          ...data.session,
+          isActive: true
+        };
+        
+        // Update state in a single batch
+        setSessions(prev => [newSession, ...prev.map(s => ({ ...s, isActive: false }))]);
+        setSessionId(newSession.id);
+        setConversation([]);
+        setError(null);
       }
     } catch (error) {
-      logger.error('Error creating session:', error);
+      logger.error('[Sessions] Error creating session:', error);
       setError('Error creating new chat');
     }
   };
@@ -171,17 +191,18 @@ function App() {
   // Select a chat session
   const selectSession = async (id) => {
     try {
-      setSessionId(id); // Update session ID immediately
+      // Update sessions list first to show the selection
+      setSessions(prev => prev.map(s => ({
+        ...s,
+        isActive: s.id === id
+      })));
+      setSessionId(id);
+      
       const response = await fetch(`http://localhost:5000/api/sessions/${id}/messages`);
       const data = await response.json();
       if (data.success) {
         setConversation(data.messages);
         setError(null);
-        // Update UI to show this is the current session
-        setSessions(prev => prev.map(s => ({
-          ...s,
-          isActive: s.id === id
-        })));
       }
     } catch (error) {
       logger.error('Error loading session messages:', error);
@@ -235,19 +256,6 @@ function App() {
       setError('Error updating chat title');
     }
   };
-
-  // Generate session ID on page load
-  useEffect(() => {
-    const generateSessionId = () => {
-      const timestamp = Date.now();
-      const random = Math.random().toString(36).substring(2, 8);
-      return `session-${timestamp}-${random}`;
-    };
-    
-    const newSessionId = generateSessionId();
-    setSessionId(newSessionId);
-    logger.info('New session started:', newSessionId);
-  }, []);
 
   const playNextSegment = useCallback(() => {
     if (audioQueueRef.current.length > 0 && !isProcessingRef.current) {

@@ -98,6 +98,9 @@ The frontend will be available at `http://localhost:3000`
    - Check GPU availability and CUDA setup
    - Verify audio file format and quality
 
+npx @agentdeskai/browser-tools-server
+
+
 ## License
 
 MIT License
