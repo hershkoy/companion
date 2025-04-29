@@ -329,6 +329,11 @@ function App() {
             method: 'POST',
             body: formData,
           });
+          
+          if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+          }
+          
           const data = await response.json();
           
           if (data.success) {
@@ -343,12 +348,18 @@ function App() {
           } else {
             const errorMsg = data.error || 'Unknown error occurred';
             logger.error('Transcription failed:', errorMsg, { chatId: currentChatId });
-            setError(errorMsg);
+            setError(`Transcription failed: ${errorMsg}. Please try recording again.`);
+            // Clean up recording state
+            setIsRecording(false);
+            chunksRef.current = [];
           }
         } catch (error) {
           const errorMessage = error.message || 'Error connecting to server';
           logger.error('Error sending audio to server:', error, { chatId: currentChatId });
-          setError(errorMessage);
+          setError(`Failed to process audio: ${errorMessage}. Please try recording again.`);
+          // Clean up recording state
+          setIsRecording(false);
+          chunksRef.current = [];
         }
       };
 
@@ -357,6 +368,12 @@ function App() {
     } catch (error) {
       logger.error('Error accessing microphone:', error);
       setError('Error accessing microphone: ' + error.message);
+      // Clean up recording state
+      setIsRecording(false);
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      }
+      chunksRef.current = [];
     }
   };
 
