@@ -4,9 +4,7 @@ import logger from './utils/logger';
 
 function App() {
   const [isRecording, setIsRecording] = useState(false);
-  const [transcription, setTranscription] = useState('');
-  const [aiResponse, setAiResponse] = useState('');
-  const [audioSegments, setAudioSegments] = useState([]);
+  const [conversation, setConversation] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState(null);
   const [sessionId, setSessionId] = useState('');
@@ -15,6 +13,7 @@ function App() {
   const currentAudioRef = useRef(null);
   const audioQueueRef = useRef([]);
   const isProcessingRef = useRef(false);
+  const messagesEndRef = useRef(null);
 
   // Generate session ID on page load
   useEffect(() => {
@@ -63,11 +62,12 @@ function App() {
         throw new Error('No agent message in n8n response');
       }
 
+      // Add AI response to conversation
+      setConversation(prev => [...prev, { type: 'ai', text: agentMessage }]);
+
       // If we already have audio segments, use them directly
       if (data.response?.segments?.length > 0) {
         logger.info('Using pre-generated audio segments');
-        setAiResponse(agentMessage);
-        setAudioSegments(data.response.segments);
         audioQueueRef.current = [...data.response.segments];
         setIsPlaying(true);
         playNextSegment();
@@ -89,11 +89,7 @@ function App() {
         throw new Error(ttsData.error || 'TTS conversion failed');
       }
 
-      // Update state with the response
-      setAiResponse(agentMessage);
-      
       // Store audio segments and prepare for playback
-      setAudioSegments(ttsData.segments || []);
       audioQueueRef.current = [...(ttsData.segments || [])];
       setIsPlaying(true);
       playNextSegment();
@@ -135,7 +131,8 @@ function App() {
           
           if (data.success) {
             logger.info('Successfully processed audio', { sessionId });
-            setTranscription(data.transcription);
+            // Add user message to conversation
+            setConversation(prev => [...prev, { type: 'user', text: data.transcription }]);
             
             // Process n8n response and convert to speech
             await processN8nResponse(data);
@@ -179,58 +176,51 @@ function App() {
     setIsPlaying(false);
   };
 
+  // Scroll to bottom of messages when conversation updates
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [conversation]);
+
   return (
     <div className="App">
       <header className="App-header">
-        <h1>Audio Transcription & Response</h1>
+        <h1>Audio Chat Assistant</h1>
         
-        <div className="control-buttons">
-          <button 
-            onClick={isRecording ? stopRecording : startRecording}
-            className={`record-button ${isRecording ? 'recording' : ''}`}
-          >
-            {isRecording ? 'Stop Recording' : 'Start Recording'}
-          </button>
-          
-          {isPlaying && (
+        <div className="chat-container">
+          <div className="messages">
+            {conversation.map((message, index) => (
+              <div key={index} className={`message ${message.type}`}>
+                <div className="message-content">
+                  {message.text}
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <div className="control-buttons">
             <button 
-              onClick={stopPlayback}
-              className="stop-button"
+              onClick={isRecording ? stopRecording : startRecording}
+              className={`record-button ${isRecording ? 'recording' : ''}`}
             >
-              Stop Playback
+              {isRecording ? 'Stop Recording' : 'Start Recording'}
             </button>
-          )}
+            
+            {isPlaying && (
+              <button 
+                onClick={stopPlayback}
+                className="stop-button"
+              >
+                Stop Playback
+              </button>
+            )}
+          </div>
         </div>
 
         {error && (
           <div className="error-message">
             <h3>Error</h3>
             <p>{error}</p>
-          </div>
-        )}
-
-        {transcription && (
-          <div className="transcription">
-            <h2>Your Message:</h2>
-            <p>{transcription}</p>
-          </div>
-        )}
-
-        {aiResponse && (
-          <div className="ai-response">
-            <h2>AI Response:</h2>
-            <p>{aiResponse}</p>
-          </div>
-        )}
-
-        {audioSegments.length > 0 && (
-          <div className="segments">
-            <h3>Response Segments:</h3>
-            {audioSegments.map((segment, index) => (
-              <div key={index} className="segment">
-                <p>{segment.text}</p>
-              </div>
-            ))}
           </div>
         )}
       </header>

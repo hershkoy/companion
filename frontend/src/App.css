@@ -1,5 +1,8 @@
 .App {
   text-align: center;
+  min-height: 100vh;
+  background-color: #343541;
+  color: white;
 }
 
 .App-logo {
@@ -14,15 +17,12 @@
 }
 
 .App-header {
-  background-color: #282c34;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding: 2rem;
-  font-size: calc(10px + 1.5vmin);
-  color: white;
+  justify-content: space-between;
+  padding: 20px;
 }
 
 .App-link {
@@ -38,73 +38,80 @@
   }
 }
 
-.control-buttons {
+.chat-container {
+  width: 100%;
+  max-width: 800px;
+  height: 80vh;
   display: flex;
-  gap: 1rem;
-  margin: 2rem 0;
+  flex-direction: column;
+  background-color: #444654;
+  border-radius: 10px;
+  overflow: hidden;
 }
 
-.record-button, .stop-button {
-  padding: 15px 30px;
-  font-size: 1.2rem;
-  border: none;
-  border-radius: 25px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  margin: 20px 0;
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.message {
+  display: flex;
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 80%;
+}
+
+.message.user {
+  align-self: flex-end;
+  background-color: #343541;
+}
+
+.message.ai {
+  align-self: flex-start;
+  background-color: #444654;
+}
+
+.message-content {
+  line-height: 1.5;
+}
+
+.control-buttons {
+  padding: 20px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  background-color: #343541;
 }
 
 .record-button {
-  background-color: #4CAF50;
+  padding: 10px 20px;
+  font-size: 16px;
+  border: none;
+  border-radius: 5px;
+  background-color: #10a37f;
   color: white;
-}
-
-.record-button:hover {
-  background-color: #45a049;
-  transform: scale(1.05);
+  cursor: pointer;
+  transition: background-color 0.3s;
 }
 
 .record-button.recording {
-  background-color: #f44336;
+  background-color: #dc2626;
   animation: pulse 1.5s infinite;
 }
 
-.record-button.recording:hover {
-  background-color: #da190b;
-}
-
 .stop-button {
-  background-color: #ff9800;
+  padding: 10px 20px;
+  font-size: 16px;
+  border: none;
+  border-radius: 5px;
+  background-color: #dc2626;
   color: white;
-}
-
-.stop-button:hover {
-  background-color: #f57c00;
-  transform: scale(1.05);
-}
-
-.error-message {
-  background-color: rgba(244, 67, 54, 0.1);
-  border-left: 4px solid #f44336;
-  padding: 1rem 2rem;
-  margin: 1rem 0;
-  border-radius: 4px;
-  width: 80%;
-  max-width: 800px;
-  text-align: left;
-}
-
-.error-message h3 {
-  color: #f44336;
-  margin: 0 0 0.5rem 0;
-  font-size: 1.2rem;
-}
-
-.error-message p {
-  margin: 0;
-  color: #fff;
-  font-size: 1rem;
-  line-height: 1.5;
+  cursor: pointer;
+  transition: background-color 0.3s;
 }
 
 @keyframes pulse {
@@ -117,6 +124,14 @@
   100% {
     transform: scale(1);
   }
+}
+
+.error-message {
+  color: #dc2626;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 5px;
+  background-color: rgba(220, 38, 38, 0.1);
 }
 
 .transcription, .ai-response, .segments {
