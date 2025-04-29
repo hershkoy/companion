@@ -68,6 +68,7 @@ function App() {
   const messagesEndRef = useRef(null);
   const [wsConnected, setWsConnected] = useState(false);
   const wsRef = useRef(null);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
 
   // Load sessions on mount and set up auto-refresh
   useEffect(() => {
@@ -439,12 +440,42 @@ function App() {
         <header className="App-header">
           <h1>Audio Chat Assistant</h1>
           
-          <div className="system-prompt-container">
-            <div className="system-prompt-header">
-              <h3>System Prompt</h3>
-              <div className="header-controls">
-                <div className="context-window-control">
-                  <span>Context:</span>
+          <div className="config-accordion">
+            <button 
+              className="config-header"
+              onClick={() => setIsConfigOpen(!isConfigOpen)}
+            >
+              <span>Configuration</span>
+              <svg 
+                stroke="currentColor" 
+                fill="none" 
+                strokeWidth="2" 
+                viewBox="0 0 24 24" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                height="1em" 
+                width="1em" 
+                style={{
+                  transform: isConfigOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.2s'
+                }}
+              >
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            {isConfigOpen && (
+              <div className="config-content">
+                <div className="config-row">
+                  <div className="config-label">System Prompt</div>
+                  <textarea
+                    value={systemPrompt}
+                    onChange={(e) => setSystemPrompt(e.target.value)}
+                    className="config-input"
+                    rows="3"
+                  />
+                </div>
+                <div className="config-row">
+                  <div className="config-label">Context Window</div>
                   <input
                     type="number"
                     value={numCtx}
@@ -453,24 +484,6 @@ function App() {
                     min="1"
                   />
                 </div>
-                <button 
-                  onClick={() => setIsEditingPrompt(!isEditingPrompt)}
-                  className="edit-prompt-button"
-                >
-                  {isEditingPrompt ? 'Save' : 'Edit'}
-                </button>
-              </div>
-            </div>
-            {isEditingPrompt ? (
-              <textarea
-                value={systemPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
-                className="system-prompt-input"
-                rows="3"
-              />
-            ) : (
-              <div className="system-prompt-display">
-                {systemPrompt}
               </div>
             )}
           </div>
