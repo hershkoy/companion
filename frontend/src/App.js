@@ -8,6 +8,10 @@ function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState(null);
   const [sessionId, setSessionId] = useState('');
+  const [systemPrompt, setSystemPrompt] = useState(
+    `You are a helpful and conversational assistant. Match the length of the user's message most of the time. Only elaborate if it is necessary to clarify or explain something important. Be friendly, direct, and natural.`
+  );
+  const [isEditingPrompt, setIsEditingPrompt] = useState(false);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const currentAudioRef = useRef(null);
@@ -60,6 +64,15 @@ function App() {
       const agentMessage = data.response?.agentMessage;
       if (!agentMessage) {
         throw new Error('No agent message in n8n response');
+      }
+
+      // Check if the agent wants to modify the system prompt
+      if (data.response?.newSystemPrompt) {
+        setSystemPrompt(data.response.newSystemPrompt);
+        setConversation(prev => [...prev, { 
+          type: 'system', 
+          text: 'System prompt updated by AI' 
+        }]);
       }
 
       // Add AI response to conversation
@@ -121,6 +134,7 @@ function App() {
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.webm');
         formData.append('sessionId', sessionId);
+        formData.append('systemPrompt', systemPrompt);
 
         try {
           const response = await fetch('http://localhost:5000/api/transcribe', {
@@ -131,7 +145,7 @@ function App() {
           
           if (data.success) {
             logger.info('Successfully processed audio', { sessionId });
-            // Add user message to conversation
+            // Add user message to conversation immediately after transcription
             setConversation(prev => [...prev, { type: 'user', text: data.transcription }]);
             
             // Process n8n response and convert to speech
@@ -185,6 +199,30 @@ function App() {
     <div className="App">
       <header className="App-header">
         <h1>Audio Chat Assistant</h1>
+        
+        <div className="system-prompt-container">
+          <div className="system-prompt-header">
+            <h3>System Prompt</h3>
+            <button 
+              onClick={() => setIsEditingPrompt(!isEditingPrompt)}
+              className="edit-prompt-button"
+            >
+              {isEditingPrompt ? 'Save' : 'Edit'}
+            </button>
+          </div>
+          {isEditingPrompt ? (
+            <textarea
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              className="system-prompt-input"
+              rows="3"
+            />
+          ) : (
+            <div className="system-prompt-display">
+              {systemPrompt}
+            </div>
+          )}
+        </div>
         
         <div className="chat-container">
           <div className="messages">

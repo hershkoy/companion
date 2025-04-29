@@ -162,3 +162,65 @@
   font-size: 1rem;
   line-height: 1.5;
 }
+
+.system-prompt-container {
+  width: 100%;
+  max-width: 800px;
+  margin-bottom: 20px;
+  background-color: #444654;
+  border-radius: 10px;
+  padding: 15px;
+}
+
+.system-prompt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.system-prompt-header h3 {
+  margin: 0;
+  color: #10a37f;
+}
+
+.edit-prompt-button {
+  padding: 5px 10px;
+  background-color: #10a37f;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.edit-prompt-button:hover {
+  background-color: #0d8c6d;
+}
+
+.system-prompt-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #10a37f;
+  border-radius: 4px;
+  background-color: #343541;
+  color: white;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.system-prompt-display {
+  padding: 10px;
+  background-color: #343541;
+  border-radius: 4px;
+  color: white;
+  font-size: 14px;
+  white-space: pre-wrap;
+}
+
+.message.system {
+  align-self: center;
+  background-color: #10a37f;
+  color: white;
+  font-style: italic;
+}
