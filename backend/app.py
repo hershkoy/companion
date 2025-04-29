@@ -20,6 +20,8 @@ import sys
 import asyncio
 from flask_sock import Sock
 import json
+from flask_socketio import SocketIO
+import websockets
 
 # Configure logging
 def setup_logger():
@@ -69,6 +71,7 @@ logger.info(f"OLLAMA_URL={os.getenv('OLLAMA_URL')}")
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
+socketio = SocketIO(app, cors_allowed_origins="*")
 sock = Sock(app)
 
 # Initialize models
@@ -566,6 +569,45 @@ def transcribe_audio():
 
     except Exception as e:
         logger.error(f"Error during processing: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/backend/api/generate_title', methods=['POST'])
+def generate_title():
+    try:
+        data = request.json
+        messages = data.get('messages', [])
+        
+        # Prepare conversation for title generation
+        conversation_text = "\n".join([f"{msg['type']}: {msg['text']}" for msg in messages])
+        
+        # Call Ollama with the specific title generation prompt
+        response = await ollama.chat(
+            model="mistral",
+            messages=[
+                {"role": "system", "content": TITLE_SYSTEM_PROMPT},
+                {"role": "user", "content": f"Generate a title for this conversation:\n\n{conversation_text}"}
+            ]
+        )
+        
+        title = response.message.content.strip()
+        
+        # Broadcast the title update via WebSocket
+        socketio.emit('session_title_update', {
+            'type': 'session_title_update',
+            'session_id': data.get('session_id'),
+            'title': title
+        })
+        
+        return jsonify({
+            'success': True,
+            'title': title
+        })
+        
+    except Exception as e:
+        logger.error(f"Error generating title: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
