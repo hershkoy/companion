@@ -9,37 +9,37 @@ class ConversationStore:
         # In-memory cache of conversations
         self._conversations: Dict[str, List[dict]] = {}
         
-    def add_message(self, session_id: str, message: dict) -> None:
+    def add_message(self, chat_id: str, message: dict) -> None:
         """Add a message to the conversation history.
         
         Args:
-            session_id: The session identifier
+            chat_id: The chat identifier
             message: Dict containing 'type' ('user' or 'ai') and 'text' keys
         """
-        if session_id not in self._conversations:
+        if chat_id not in self._conversations:
             # Load from database if not in memory
-            self._conversations[session_id] = db.get_session_messages(session_id)
+            self._conversations[chat_id] = db.get_chat_messages(chat_id)
             
-        self._conversations[session_id].append(message)
+        self._conversations[chat_id].append(message)
         # Persist to database
-        db.add_message(session_id, message['type'], message['text'])
-        logger.info(f"Added message to session {session_id}: {message}")
+        db.add_message(chat_id, message['type'], message['text'])
+        logger.info(f"Added message to chat {chat_id}: {message}")
         
-    def get_history(self, session_id: str, max_tokens: Optional[int] = None) -> List[dict]:
-        """Get conversation history for a session.
+    def get_history(self, chat_id: str, max_tokens: Optional[int] = None) -> List[dict]:
+        """Get conversation history for a chat.
         
         Args:
-            session_id: The session identifier
+            chat_id: The chat identifier
             max_tokens: Optional maximum number of tokens to include (most recent messages prioritized)
             
         Returns:
             List of message dictionaries
         """
-        if session_id not in self._conversations:
+        if chat_id not in self._conversations:
             # Load from database if not in memory
-            self._conversations[session_id] = db.get_session_messages(session_id)
+            self._conversations[chat_id] = db.get_chat_messages(chat_id)
             
-        history = self._conversations[session_id]
+        history = self._conversations[chat_id]
         
         if max_tokens is None:
             return history
@@ -60,46 +60,46 @@ class ConversationStore:
             
         return messages
         
-    def clear_session(self, session_id: str) -> None:
-        """Clear the conversation history for a session.
+    def clear_chat(self, chat_id: str) -> None:
+        """Clear the conversation history for a chat.
         
         Args:
-            session_id: The session identifier
+            chat_id: The chat identifier
         """
-        if session_id in self._conversations:
-            del self._conversations[session_id]
+        if chat_id in self._conversations:
+            del self._conversations[chat_id]
         # Delete from database
-        db.delete_session(session_id)
-        logger.info(f"Cleared conversation history for session {session_id}")
+        db.delete_chat(chat_id)
+        logger.info(f"Cleared conversation history for chat {chat_id}")
             
-    def get_all_sessions(self) -> List[str]:
-        """Get all active session IDs.
+    def get_all_chats(self) -> List[str]:
+        """Get all active chats.
         
         Returns:
-            List of session IDs
+            List of chat data
         """
-        return db.get_all_sessions()
+        return db.get_all_chats()
 
-    def create_session(self, session_id: str, title: str = None) -> None:
-        """Create a new chat session.
+    def create_chat(self, chat_id: str, title: str = None) -> None:
+        """Create a new chat.
         
         Args:
-            session_id: The session identifier
-            title: Optional title for the session
+            chat_id: The chat identifier
+            title: Optional title for the chat
         """
-        db.create_session(session_id, title)
-        self._conversations[session_id] = []
-        logger.info(f"Created new session: {session_id}")
+        db.create_chat(chat_id, title)
+        self._conversations[chat_id] = []
+        logger.info(f"Created new chat: {chat_id}")
 
-    def update_session_title(self, session_id: str, title: str) -> None:
-        """Update the title of a session.
+    def update_chat_title(self, chat_id: str, title: str) -> None:
+        """Update the title of a chat.
         
         Args:
-            session_id: The session identifier
-            title: New title for the session
+            chat_id: The chat identifier
+            title: New title for the chat
         """
-        db.update_session_title(session_id, title)
-        logger.info(f"Updated title for session {session_id}: {title}")
+        db.update_chat_title(chat_id, title)
+        logger.info(f"Updated title for chat {chat_id}: {title}")
 
 # Global instance
 conversation_store = ConversationStore() 

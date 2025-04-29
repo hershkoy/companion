@@ -2,12 +2,12 @@ import React, { useState, useMemo } from 'react';
 import './ChatList.css';
 
 const ChatList = ({
-  sessions,
-  currentSession,
-  onSelectSession,
-  onCreateSession,
-  onDeleteSession,
-  onUpdateSessionTitle
+  sessions: chats,
+  currentSession: currentChat,
+  onSelectSession: onSelectChat,
+  onCreateSession: onCreateChat,
+  onDeleteSession: onDeleteChat,
+  onUpdateSessionTitle: onUpdateChatTitle
 }) => {
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
@@ -27,42 +27,43 @@ const ChatList = ({
     const weekAgo = new Date(now);
     weekAgo.setDate(weekAgo.getDate() - 7);
 
-    sessions.forEach(session => {
-      const sessionDate = new Date(session.created_at);
+    chats.forEach(chat => {
+      const chatDate = new Date(chat.created_at);
       
-      if (sessionDate.toDateString() === now.toDateString()) {
-        groups['Today'].push(session);
-      } else if (sessionDate.toDateString() === yesterday.toDateString()) {
-        groups['Yesterday'].push(session);
-      } else if (sessionDate > weekAgo) {
-        groups['Previous 7 Days'].push(session);
+      if (chatDate.toDateString() === now.toDateString()) {
+        groups['Today'].push(chat);
+      } else if (chatDate.toDateString() === yesterday.toDateString()) {
+        groups['Yesterday'].push(chat);
+      } else if (chatDate > weekAgo) {
+        groups['Previous 7 Days'].push(chat);
       } else {
-        groups['Older'].push(session);
+        groups['Older'].push(chat);
       }
     });
 
     return groups;
-  }, [sessions]);
+  }, [chats]);
 
   const handleCreateSession = () => {
-    onCreateSession();
+    onCreateChat();
   };
 
-  const startEditing = (session) => {
-    setEditingId(session.id);
-    setEditTitle(session.title);
+  const startEditing = (chat) => {
+    setEditingId(chat.id);
+    setEditTitle(chat.title);
   };
 
-  const handleUpdateTitle = (sessionId) => {
+  const handleUpdateTitle = async (chatId) => {
     if (editTitle.trim()) {
-      onUpdateSessionTitle(sessionId, editTitle.trim());
-      setEditingId(null);
+      await onUpdateChatTitle(chatId, editTitle.trim());
     }
+    setEditingId(null);
+    setEditTitle('');
   };
 
-  const handleKeyPress = (e, sessionId) => {
+  const handleKeyPress = (e, chatId) => {
     if (e.key === 'Enter') {
-      handleUpdateTitle(sessionId);
+      handleUpdateTitle(chatId);
     } else if (e.key === 'Escape') {
       setEditingId(null);
     }
@@ -99,20 +100,20 @@ const ChatList = ({
           groupSessions.length > 0 && (
             <div key={dateGroup}>
               <div className="date-separator">{dateGroup}</div>
-              {groupSessions.map((session) => (
+              {groupSessions.map((chat) => (
                 <div
-                  key={session.id}
-                  className={`session-item ${session.id === currentSession?.id || session.isActive ? 'active' : ''}`}
-                  onClick={() => onSelectSession(session.id)}
+                  key={chat.id}
+                  className={`session-item ${chat.id === currentChat?.id || chat.isActive ? 'active' : ''}`}
+                  onClick={() => onSelectChat(chat.id)}
                 >
                   <div className="session-content">
-                    {editingId === session.id ? (
+                    {editingId === chat.id ? (
                       <input
                         type="text"
                         value={editTitle}
                         onChange={(e) => setEditTitle(e.target.value)}
-                        onBlur={() => handleUpdateTitle(session.id)}
-                        onKeyDown={(e) => handleKeyPress(e, session.id)}
+                        onBlur={() => handleUpdateTitle(chat.id)}
+                        onKeyDown={(e) => handleKeyPress(e, chat.id)}
                         autoFocus
                         onClick={(e) => e.stopPropagation()}
                       />
@@ -122,10 +123,10 @@ const ChatList = ({
                           <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="1em" width="1em" style={{marginRight: '0.5rem'}}>
                             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                           </svg>
-                          {session.title || 'Untitled Chat'}
+                          {chat.title || 'Untitled Chat'}
                         </span>
-                        {session.latest_message && (
-                          <div className="session-preview">{session.latest_message}</div>
+                        {chat.latest_message && (
+                          <div className="session-preview">{chat.latest_message}</div>
                         )}
                       </div>
                     )}
@@ -134,7 +135,7 @@ const ChatList = ({
                         className="edit-button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          startEditing(session);
+                          startEditing(chat);
                         }}
                       >
                         <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="1em" width="1em">
@@ -146,7 +147,7 @@ const ChatList = ({
                         className="delete-button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onDeleteSession(session.id);
+                          onDeleteChat(chat.id);
                         }}
                       >
                         <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="1em" width="1em">

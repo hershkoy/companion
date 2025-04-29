@@ -53,8 +53,8 @@ function App() {
   const [conversation, setConversation] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState(null);
-  const [sessionId, setSessionId] = useState('');
-  const [sessions, setSessions] = useState([]);
+  const [chatId, setChatId] = useState('');
+  const [chats, setChats] = useState([]);
   const [systemPrompt, setSystemPrompt] = useState(
     `You are a helpful and conversational assistant. Match the length of the user's message most of the time. Only elaborate if it is necessary to clarify or explain something important. Be friendly, direct, and natural.`
   );
@@ -68,93 +68,58 @@ function App() {
   const isProcessingRef = useRef(false);
   const messagesEndRef = useRef(null);
   const [wsConnected, setWsConnected] = useState(false);
-  const initRef = useRef(false);
+  const [ws, setWs] = useState(null);
+  const [isConnecting, setIsConnecting] = useState(false);
   const reconnectTimeoutRef = useRef(null);
+  const wsRef = useRef(null);
+  const initRef = useRef(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
-  // Load sessions from the backend
-  const loadSessions = useCallback(async () => {
+  // Select a chat
+  const selectChat = useCallback(async (id) => {
     try {
-      logger.info('[Sessions] Fetching sessions from backend');
-      const response = await fetch(`${API_BASE_URL}/api/sessions`);
+      // Update chats list first to show the selection
+      setChats(prev => prev.map(chat => ({
+        ...chat,
+        isActive: chat.id === id
+      })));
+      setChatId(id);
+      
+      const response = await fetch(`${API_BASE_URL}/api/sessions/${id}/messages`);
       const data = await response.json();
       if (data.success) {
-        logger.info(`[Sessions] Loaded ${data.sessions.length} sessions`);
-        setSessions(prevSessions => {
-          const newSessions = data.sessions;
-          // If we have a current session, make sure it stays active
-          if (sessionId) {
-            logger.info(`[Sessions] Preserving active state for session ${sessionId}`);
-            return newSessions.map(s => ({
-              ...s,
-              isActive: s.id === sessionId
-            }));
-          }
-          // If no current session but we have sessions, select the first one
-          if (newSessions.length > 0 && !sessionId) {
-            const firstSession = newSessions[0];
-            logger.info(`[Sessions] Auto-selecting first session: ${firstSession.id}`);
-            setSessionId(firstSession.id);
-            return newSessions.map(s => ({
-              ...s,
-              isActive: s.id === firstSession.id
-            }));
-          }
-          return newSessions;
-        });
+        setConversation(data.messages);
+        setError(null);
       }
     } catch (error) {
-      logger.error('[Sessions] Error loading sessions:', error);
-      setError('Error loading chat sessions');
+      logger.error('Error loading chat messages:', error);
+      setError('Error loading chat messages');
     }
-  }, [sessionId]);
+  }, []);
 
-  // Load initial sessions only once
-  useEffect(() => {
-    if (!initRef.current) {
-      logger.info('[Init] First-time initialization');
-      initRef.current = true;
-      loadSessions();
-    } else {
-      logger.debug('[Init] Skipping duplicate initialization');
-    }
-  }, [loadSessions]);
-
-  // Initialize WebSocket connection
-  useEffect(() => {
-    const handleWebSocket = (event, data) => {
-      switch (event) {
-        case 'connected':
-          setWsConnected(true);
-          break;
-        case 'disconnected':
-          setWsConnected(false);
-          break;
-        case 'message':
-          if (data.type === 'title_update') {
-            logger.info(`[WebSocket] Updating title for session ${data.session_id}`);
-            setSessions(prev => prev.map(s => 
-              s.id === data.session_id 
-                ? { ...s, title: data.title }
-                : s
-            ));
-          }
-          break;
-      }
-    };
-
-    wsManager.addListener(handleWebSocket);
-    wsManager.connect();
-
-    return () => {
-      wsManager.removeListener(handleWebSocket);
-    };
-  }, []); // No dependencies needed for WebSocket setup
-
-  // Create a new chat session
-  const createSession = async () => {
+  // Load chats from the backend
+  const loadChats = useCallback(async () => {
+    console.log('[INFO] [Chats] Fetching chats from backend');
     try {
-      logger.info('[Sessions] Creating new chat session');
+      const response = await fetch('/backend/api/sessions');
+      const data = await response.json();
+      if (data.success) {
+        console.log(`[INFO] [Chats] Loaded ${data.sessions.length} chats`);
+        setChats(data.sessions);
+        // Only auto-select if no current chat
+        if (!chatId && data.sessions.length > 0) {
+          selectChat(data.sessions[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('[ERROR] [Chats] Failed to load chats:', error);
+    }
+  }, [chatId, selectChat]);
+
+  // Create a new chat
+  const createChat = async () => {
+    try {
+      logger.info('[Chats] Creating new chat');
       const response = await fetch(`${API_BASE_URL}/api/sessions`, {
         method: 'POST',
         headers: {
@@ -164,73 +129,54 @@ function App() {
       });
       const data = await response.json();
       if (data.success) {
-        logger.info(`[Sessions] Created new session: ${data.session.id}`);
-        const newSession = {
+        logger.info(`[Chats] Created new chat: ${data.session.id}`);
+        const newChat = {
           ...data.session,
           isActive: true
         };
         
         // Update state in a single batch
-        setSessions(prev => [newSession, ...prev.map(s => ({ ...s, isActive: false }))]);
-        setSessionId(newSession.id);
+        setChats(prev => [newChat, ...prev.map(chat => ({ ...chat, isActive: false }))]);
+        setChatId(newChat.id);
         setConversation([]);
         setError(null);
+        return newChat;
       }
+      throw new Error('Failed to create chat');
     } catch (error) {
-      logger.error('[Sessions] Error creating session:', error);
+      logger.error('[Chats] Error creating chat:', error);
       setError('Error creating new chat');
+      throw error;
     }
   };
 
-  // Select a chat session
-  const selectSession = async (id) => {
-    try {
-      // Update sessions list first to show the selection
-      setSessions(prev => prev.map(s => ({
-        ...s,
-        isActive: s.id === id
-      })));
-      setSessionId(id);
-      
-      const response = await fetch(`${API_BASE_URL}/api/sessions/${id}/messages`);
-      const data = await response.json();
-      if (data.success) {
-        setConversation(data.messages);
-        setError(null);
-      }
-    } catch (error) {
-      logger.error('Error loading session messages:', error);
-      setError('Error loading chat messages');
-    }
-  };
-
-  // Delete a chat session
-  const deleteSession = async (id) => {
+  // Delete a chat
+  const deleteChat = async (id) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/sessions/${id}`, {
         method: 'DELETE',
       });
       const data = await response.json();
       if (data.success) {
-        setSessions(prev => prev.filter(s => s.id !== id));
-        if (sessionId === id) {
-          const remainingSessions = sessions.filter(s => s.id !== id);
-          if (remainingSessions.length > 0) {
-            await selectSession(remainingSessions[0].id);
+        setChats(prev => prev.filter(chat => chat.id !== id));
+        if (chatId === id) {
+          const remainingChats = chats.filter(chat => chat.id !== id);
+          if (remainingChats.length > 0) {
+            await selectChat(remainingChats[0].id);
           } else {
-            setSessionId('');
+            setChatId('');
             setConversation([]);
           }
         }
       }
     } catch (error) {
-      logger.error('Error deleting session:', error);
+      logger.error('Error deleting chat:', error);
       setError('Error deleting chat');
     }
   };
 
-  // Update session title
-  const updateSessionTitle = async (id, title) => {
+  // Update chat title
+  const updateChatTitle = async (id, title) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/sessions/${id}`, {
         method: 'PUT',
@@ -241,12 +187,12 @@ function App() {
       });
       const data = await response.json();
       if (data.success) {
-        setSessions(prev => prev.map(s => 
-          s.id === id ? { ...s, title } : s
+        setChats(prev => prev.map(chat => 
+          chat.id === id ? { ...chat, title } : chat
         ));
       }
     } catch (error) {
-      logger.error('Error updating session title:', error);
+      logger.error('Error updating chat title:', error);
       setError('Error updating chat title');
     }
   };
@@ -335,8 +281,14 @@ function App() {
 
   const startRecording = async () => {
     try {
+      // Check if we have an active chat, if not create one
+      if (!chatId) {
+        logger.info('[Chats] No active chat, creating one');
+        await createChat();
+      }
+
       setError(null);
-      logger.info('Starting recording...', { sessionId });
+      logger.info('Starting recording...', { chatId });
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
       chunksRef.current = [];
@@ -348,11 +300,11 @@ function App() {
       };
 
       mediaRecorderRef.current.onstop = async () => {
-        logger.info('Recording stopped, processing audio...', { sessionId });
+        logger.info('Recording stopped, processing audio...', { chatId });
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.webm');
-        formData.append('sessionId', sessionId);
+        formData.append('sessionId', chatId);
         formData.append('systemPrompt', systemPrompt);
         formData.append('num_ctx', numCtx.toString());
         
@@ -369,7 +321,7 @@ function App() {
           const data = await response.json();
           
           if (data.success) {
-            logger.info('Successfully processed audio', { sessionId });
+            logger.info('Successfully processed audio', { chatId });
             // Show transcription immediately
             if (data.transcription) {
               setConversation(prev => [...prev, { type: 'user', text: data.transcription }]);
@@ -379,12 +331,12 @@ function App() {
             await processN8nResponse(data);
           } else {
             const errorMsg = data.error || 'Unknown error occurred';
-            logger.error('Transcription failed:', errorMsg, { sessionId });
+            logger.error('Transcription failed:', errorMsg, { chatId });
             setError(errorMsg);
           }
         } catch (error) {
           const errorMessage = error.message || 'Error connecting to server';
-          logger.error('Error sending audio to server:', error, { sessionId });
+          logger.error('Error sending audio to server:', error, { chatId });
           setError(errorMessage);
         }
       };
@@ -392,7 +344,7 @@ function App() {
       mediaRecorderRef.current.start();
       setIsRecording(true);
     } catch (error) {
-      logger.error('Error accessing microphone:', error, { sessionId });
+      logger.error('Error accessing microphone:', error, { chatId });
       setError('Error accessing microphone: ' + error.message);
     }
   };
@@ -422,15 +374,99 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversation]);
 
+  useEffect(() => {
+    const connectWebSocket = () => {
+      if (isConnecting || wsRef.current?.readyState === WebSocket.OPEN) {
+        console.log('[DEBUG] [WebSocket] Already connected or connecting');
+        return;
+      }
+
+      setIsConnecting(true);
+      console.log('[INFO] [WebSocket] Attempting connection');
+
+      const newWs = new WebSocket('ws://localhost:5000/backend/ws');
+      wsRef.current = newWs;
+
+      newWs.onopen = () => {
+        console.log('[INFO] [WebSocket] Connection established');
+        setWs(newWs);
+        setIsConnecting(false);
+      };
+
+      newWs.onclose = () => {
+        console.log('[INFO] [WebSocket] Connection closed');
+        setWs(null);
+        wsRef.current = null;
+        setIsConnecting(false);
+
+        // Clear any existing reconnection timeout
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
+
+        // Attempt to reconnect after 5 seconds
+        reconnectTimeoutRef.current = setTimeout(() => {
+          console.log('[INFO] [WebSocket] Attempting to reconnect');
+          connectWebSocket();
+        }, 5000);
+      };
+
+      newWs.onerror = (error) => {
+        console.error('[ERROR] [WebSocket] Connection error:', error);
+      };
+
+      newWs.onmessage = async (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'session_title_update') {
+            console.log('[INFO] [WebSocket] Received title update for chat:', data.session_id);
+            // Update only the specific chat's title
+            setChats(prevChats => 
+              prevChats.map(chat => 
+                chat.id === data.session_id 
+                  ? { ...chat, title: data.title }
+                  : chat
+              )
+            );
+          }
+        } catch (error) {
+          console.error('[ERROR] [WebSocket] Failed to process message:', error);
+        }
+      };
+    };
+
+    // Initialize only once
+    if (!initRef.current) {
+      console.log('[DEBUG] [Init] First initialization');
+      loadChats();
+      connectWebSocket();
+      initRef.current = true;
+    } else {
+      console.log('[DEBUG] [Init] Skipping duplicate initialization');
+    }
+
+    // Cleanup function
+    return () => {
+      console.log('[INFO] [WebSocket] Cleaning up connection');
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, [loadChats]);
+
   return (
     <div className="App">
       <ChatList
-        sessions={sessions}
-        currentSession={sessions.find(s => s.id === sessionId)}
-        onSelectSession={selectSession}
-        onCreateSession={createSession}
-        onDeleteSession={deleteSession}
-        onUpdateSessionTitle={updateSessionTitle}
+        sessions={chats}
+        currentSession={chats.find(chat => chat.id === chatId)}
+        onSelectSession={selectChat}
+        onCreateSession={createChat}
+        onDeleteSession={deleteChat}
+        onUpdateSessionTitle={updateChatTitle}
       />
       <div className="main-content">
         <header className="App-header">

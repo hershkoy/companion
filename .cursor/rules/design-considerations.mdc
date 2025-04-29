@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+chat history:
+1) in the UI used to show the user the conversation
+2) in the backend, used to feed conversation history to llm
+

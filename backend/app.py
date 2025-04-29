@@ -99,15 +99,15 @@ def ws_handler(ws):
         logger.info("WebSocket connection closed")
         ws_connections.remove(ws)
 
-def broadcast_title_update(session_id, title):
+def broadcast_title_update(chat_id, title):
     """Broadcast title update to all connected clients"""
     if not ws_connections:
         logger.warning("No WebSocket connections available for broadcasting")
         return
         
     message = json.dumps({
-        'type': 'title_update',
-        'session_id': session_id,
+        'type': 'session_title_update',  # Keep this for backward compatibility
+        'session_id': chat_id,  # Keep this for backward compatibility
         'title': title
     })
     
@@ -147,7 +147,7 @@ def convert_webm_to_wav(input_path, output_path):
         logger.error(f"FFmpeg error: {e.stderr.decode()}")
         return False
 
-def get_ollama_response(prompt, session_id, max_tokens=None):
+def get_ollama_response(prompt, chat_id, max_tokens=None):
     """Get response from Ollama model with GPU acceleration"""
     url = os.getenv('OLLAMA_URL', 'http://localhost:11434/api/generate')
 
@@ -159,15 +159,16 @@ def get_ollama_response(prompt, session_id, max_tokens=None):
     )
 
     # Get conversation history within token limit
-    history = conversation_store.get_history(session_id, max_tokens)
+    history = conversation_store.get_history(chat_id, max_tokens)
     history_text = ""
     if history:
         for msg in history:
             role = "User" if msg['type'] == 'user' else "Assistant"
             history_text += f"{role}: {msg['text']}\n"
 
-    print("prompt", prompt)
-    print("history", history_text)
+    logger.info(f"[Ollama] Using history with {len(history) if history else 0} messages")
+    logger.debug(f"[Ollama] History text:\n{history_text}")
+    logger.info(f"[Ollama] Current prompt: {prompt}")
 
     full_prompt = f"{system_prompt}\n\n{history_text}User: {prompt}\nAssistant:"
 
@@ -181,7 +182,7 @@ def get_ollama_response(prompt, session_id, max_tokens=None):
             "temperature": 0.7,  # Lower temperature for faster, more focused responses
             "top_p": 0.9,  # Nucleus sampling parameter
             "repeat_penalty": 1.1,  # Penalize repetition
-            "num_ctx": 2048  # Context window size
+            "num_ctx": max_tokens if max_tokens else 2048  # Use provided context window size
         }
     }
     
@@ -205,7 +206,7 @@ def get_ollama_response(prompt, session_id, max_tokens=None):
     except requests.exceptions.RequestException as e:
         raise Exception(f"Ollama API request failed: {str(e)}")
 
-def get_n8n_response(prompt, session_id):
+def get_n8n_response(prompt, chat_id):
     """Get response from n8n webhook"""
     url = os.getenv('N8N_WEBHOOK_URL')
     headers = {
@@ -227,16 +228,16 @@ def get_n8n_response(prompt, session_id):
         }
     
     data = {
-        "sessionId": session_id,
+        "sessionId": chat_id,  # Keep this for backward compatibility with n8n
         "contactMessage": prompt
     }
     
-    logger.info(f"Sending to n8n for session {session_id}: {data}")
+    logger.info(f"Sending to n8n for chat {chat_id}: {data}")
     response = requests.post(url, json=data, headers=headers)
     
     if response.status_code == 200:
         response_data = response.json()
-        logger.info(f"Received from n8n for session {session_id}: {response_data}")
+        logger.info(f"Received from n8n for chat {chat_id}: {response_data}")
         
         # Extract the agent message from the n8n response
         agent_message = response_data.get('agentMessage', '')
@@ -248,18 +249,16 @@ def get_n8n_response(prompt, session_id):
     else:
         raise Exception(f"n8n webhook error: {response.status_code}, {response.text}")
 
-def get_ai_response(prompt, session_id):
-    """Get AI response based on configured service"""
+def get_ai_response(prompt, chat_id):
+    """Get AI response using configured service"""
     service = os.getenv('AI_SERVICE', 'ollama').lower()
     
-    logger.info(f"Using AI service: {service} for session: {session_id}")
-    
-    if service == 'ollama':
-        return get_ollama_response(prompt, session_id)
-    elif service == 'n8n':
-        return get_n8n_response(prompt, session_id)
+    if service == 'n8n':
+        return get_n8n_response(prompt, chat_id)
+    elif service == 'ollama':
+        return get_ollama_response(prompt, chat_id)
     else:
-        raise ValueError(f"Invalid AI_SERVICE configuration: {service}")
+        raise ValueError(f"Unknown AI service: {service}")
 
 def process_sentence(sentence, pipeline):
     """Process a single sentence with Kokoro and return the audio data"""
@@ -300,288 +299,277 @@ def process_sentence(sentence, pipeline):
         logger.error(f"Error processing TTS for sentence: {str(e)}")
         return None
 
-@app.route('/backend/api/sessions', methods=['GET'])
-def get_sessions():
-    """Get all chat sessions."""
+@app.route('/backend/api/sessions', methods=['GET'])  # Keep endpoint for backward compatibility
+def get_chats():
+    """Get all chats"""
     try:
-        sessions = conversation_store.get_all_sessions()
-        return jsonify({
-            'success': True,
-            'sessions': sessions
-        })
+        chats = conversation_store.get_all_chats()
+        return jsonify({"success": True, "sessions": chats})  # Keep response format for backward compatibility
     except Exception as e:
-        logger.error(f"Error getting sessions: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        logger.error(f"Error getting chats: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/backend/api/sessions', methods=['POST'])
-def create_session():
-    """Create a new chat session."""
+@app.route('/backend/api/sessions', methods=['POST'])  # Keep endpoint for backward compatibility
+def create_chat():
+    """Create a new chat"""
     try:
-        session_id = f'session-{datetime.now().strftime("%Y%m%d-%H%M%S")}-{os.urandom(3).hex()}'
-        title = request.json.get('title', 'New Chat')
-        conversation_store.create_session(session_id, title)
-        return jsonify({
-            'success': True,
-            'session': {
-                'id': session_id,
-                'title': title,
-                'created_at': datetime.now().isoformat(),
-                'last_updated': datetime.now().isoformat(),
-                'latest_message': None
-            }
-        })
+        data = request.get_json()
+        title = data.get('title', 'New Chat')
+        
+        # Generate unique chat ID
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        chat_id = f"chat-{timestamp}-{os.urandom(3).hex()}"
+        
+        conversation_store.create_chat(chat_id, title)
+        
+        chat_data = {
+            "id": chat_id,
+            "title": title,
+            "created_at": datetime.now().isoformat()
+        }
+        
+        return jsonify({"success": True, "session": chat_data})  # Keep response format for backward compatibility
     except Exception as e:
-        logger.error(f"Error creating session: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        logger.error(f"Error creating chat: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/backend/api/sessions/<session_id>', methods=['PUT'])
-def update_session(session_id):
-    """Update a chat session."""
+@app.route('/backend/api/sessions/<chat_id>', methods=['PUT'])  # Keep endpoint for backward compatibility
+def update_chat(chat_id):
+    """Update chat title"""
     try:
-        title = request.json.get('title')
-        if title:
-            conversation_store.update_session_title(session_id, title)
-        return jsonify({
-            'success': True
-        })
+        data = request.get_json()
+        title = data.get('title')
+        if not title:
+            return jsonify({"success": False, "error": "Title is required"}), 400
+            
+        conversation_store.update_chat_title(chat_id, title)
+        broadcast_title_update(chat_id, title)
+        
+        return jsonify({"success": True})
     except Exception as e:
-        logger.error(f"Error updating session: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        logger.error(f"Error updating chat: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/backend/api/sessions/<session_id>', methods=['DELETE'])
-def delete_session(session_id):
-    """Delete a chat session."""
+@app.route('/backend/api/sessions/<chat_id>', methods=['DELETE'])  # Keep endpoint for backward compatibility
+def delete_chat(chat_id):
+    """Delete a chat"""
     try:
-        conversation_store.clear_session(session_id)
-        return jsonify({
-            'success': True
-        })
+        conversation_store.clear_chat(chat_id)
+        return jsonify({"success": True})
     except Exception as e:
-        logger.error(f"Error deleting session: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        logger.error(f"Error deleting chat: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/backend/api/sessions/<session_id>/messages', methods=['GET'])
-def get_session_messages(session_id):
-    """Get all messages for a chat session."""
+@app.route('/backend/api/sessions/<chat_id>/messages', methods=['GET'])  # Keep endpoint for backward compatibility
+def get_chat_messages(chat_id):
+    """Get all messages for a chat"""
     try:
-        messages = conversation_store.get_history(session_id)
-        return jsonify({
-            'success': True,
-            'messages': messages
-        })
+        messages = conversation_store.get_history(chat_id)
+        return jsonify({"success": True, "messages": messages})
     except Exception as e:
-        logger.error(f"Error getting session messages: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        logger.error(f"Error getting chat messages: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 def estimate_token_count(text):
-    """Estimate token count based on character length (rough approximation)"""
-    return len(text) // 4
+    """Estimate token count for a text string"""
+    return len(text.split()) * 1.3  # Rough estimate: 1.3 tokens per word
 
 def should_generate_title(messages):
-    """Check if we should generate a title based on conversation length"""
+    """Determine if we should generate a title based on conversation length"""
     total_tokens = sum(estimate_token_count(msg['text']) for msg in messages)
-    logger.info(f"Total tokens in conversation: {total_tokens}")
     return total_tokens >= 700
 
 def generate_chat_title(messages):
-    """Generate a title for the chat using LLM"""
-    logger.info("Starting chat title generation...")
-    
-    # Create a prompt for title generation
-    conversation_text = "\n".join([
-        f"{'User' if msg['type'] == 'user' else 'Assistant'}: {msg['text']}"
-        for msg in messages
-    ])
-    
-    system_prompt = """You are a highly efficient chat title generator.
-    Your task is to create a concise, descriptive title (max 40 chars) for this conversation.
-    Focus on the main topic or theme discussed.
-    Do not use quotes or special characters.
-    Respond with ONLY the title, nothing else."""
-    
-    full_prompt = f"{system_prompt}\n\nConversation:\n{conversation_text}\n\nTitle:"
-    
+    """Generate a title for the chat based on conversation history"""
     try:
-        logger.info("Sending title generation request to LLM...")
-        title = get_ollama_response(full_prompt, None, max_tokens=50).strip()
-        logger.info(f"Generated title: {title}")
-        return title[:40]  # Ensure max length
-    except Exception as e:
-        logger.error(f"Error generating chat title: {str(e)}")
-        return None
-
-async def update_chat_title_background(session_id, messages):
-    """Update chat title in the background"""
-    if not should_generate_title(messages):
-        return
+        # Combine messages into a summary prompt
+        conversation = "\n".join([f"{'User' if msg['type'] == 'user' else 'Assistant'}: {msg['text']}" for msg in messages])
+        prompt = f"Based on this conversation, generate a brief, descriptive title (max 6 words):\n\n{conversation}"
         
-    logger.info(f"Starting background title generation for session {session_id}")
-    
-    try:
-        with ThreadPoolExecutor() as executor:
-            loop = asyncio.get_event_loop()
-            title = await loop.run_in_executor(executor, generate_chat_title, messages)
-            
-            if title:
-                logger.info(f"Updating title for session {session_id}: {title}")
-                conversation_store.update_session_title(session_id, title)
-                # Broadcast title update to all clients
-                broadcast_title_update(session_id, title)
+        # Use Ollama for title generation
+        url = os.getenv('OLLAMA_URL', 'http://localhost:11434/api/generate')
+        response = requests.post(url, json={
+            "model": os.getenv('OLLAMA_MODEL', 'deepseek-r1'),
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "num_ctx": 2048
+            }
+        })
+        
+        if response.status_code == 200:
+            title = response.json()['response'].strip()
+            # Remove quotes if present
+            title = title.strip('"\'')
+            return title
+        else:
+            logger.error(f"Error generating title: {response.status_code}")
+            return "New Chat"
     except Exception as e:
-        logger.error(f"Error in background title generation: {str(e)}")
+        logger.error(f"Error generating title: {str(e)}")
+        return "New Chat"
+
+async def update_chat_title_background(chat_id, messages):
+    """Update chat title in the background"""
+    try:
+        if should_generate_title(messages):
+            title = generate_chat_title(messages)
+            conversation_store.update_chat_title(chat_id, title)
+            broadcast_title_update(chat_id, title)
+    except Exception as e:
+        logger.error(f"Error updating chat title: {str(e)}")
 
 @app.route('/backend/api/transcribe', methods=['POST'])
 def transcribe_audio():
-    if 'audio' not in request.files:
-        return jsonify({'error': 'No audio file provided'}), 400
-    
-    audio_file = request.files['audio']
-    session_id = request.form.get('sessionId')
-    if not session_id:
-        session_id = f'session-{datetime.now().strftime("%Y%m%d-%H%M%S")}-{os.urandom(3).hex()}'
-        conversation_store.create_session(session_id)
-        
-    num_ctx = int(request.form.get('num_ctx', '2048'))
-    temp_path = None
-    wav_files = []  # Keep track of temporary wav files
-    
+    """Transcribe audio and get AI response"""
     try:
-        logger.info(f"Processing request for session: {session_id}")
-        
-        # Create a temporary file that will be automatically cleaned up
-        with tempfile.NamedTemporaryFile(suffix='.webm', delete=False) as temp_audio:
-            temp_path = temp_audio.name
-            audio_file.save(temp_path)
-        
-        # Transcribe the audio using Whisper
-        segments, info = whisper_model.transcribe(temp_path, beam_size=5, language="en", task="transcribe")
-        transcription = " ".join(segment.text for segment in segments)
-        
-        # Store user message in conversation history
-        conversation_store.add_message(session_id, {
-            'type': 'user',
-            'text': transcription.strip()
-        })
-        
-        # Get AI response with conversation history
-        max_history_tokens = int(num_ctx * 0.75)  # Use 75% of context window for history
-        ai_response = get_ollama_response(transcription.strip(), session_id, max_history_tokens)
-        
-        # Store AI response in conversation history
-        conversation_store.add_message(session_id, {
-            'type': 'ai',
-            'text': ai_response
-        })
-        
-        # Log the transcription and language info
-        logger.info("Whisper Transcription:")
-        logger.info("-" * 40)
-        logger.info(f"Session ID: {session_id}")
-        logger.info(f"Language: {info.language} (probability: {info.language_probability:.2f})")
-        logger.info(transcription)
-        logger.info("-" * 40)
-        
-        logger.info("AI Response (after filtering):")
-        logger.info("-" * 40)
-        logger.info(f"Session ID: {session_id}")
-        logger.info(ai_response)
-        logger.info("-" * 40)
-        
-        # Split response into sentences
-        sentences = [s.strip() for s in re.split(r'[.!?]+', ai_response) if s.strip()]
-        
-        # Process sentences in parallel with Kokoro
-        MAX_WORKERS = 2 if torch.cuda.is_available() else 4
-        audio_segments = []
-        
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            future_to_sentence = {
-                executor.submit(process_sentence, sentence, kokoro_pipeline): i 
-                for i, sentence in enumerate(sentences)
-            }
+        # Get chat ID from form data
+        chat_id = request.form.get('sessionId')  # Keep form field name for backward compatibility
+        if not chat_id:
+            return jsonify({"success": False, "error": "Chat ID is required"}), 400
             
-            # Create a list to store results in order
-            results = [None] * len(sentences)
+        if 'audio' not in request.files:
+            return jsonify({'error': 'No audio file provided'}), 400
+        
+        audio_file = request.files['audio']
+        if not audio_file:
+            return jsonify({'error': 'No audio file provided'}), 400
+        
+        num_ctx = int(request.form.get('num_ctx', '2048'))
+        temp_path = None
+        wav_files = []  # Keep track of temporary wav files
+        
+        try:
+            logger.info(f"Processing request for chat: {chat_id}")
             
-            # Process completed sentences as they finish
-            for future in as_completed(future_to_sentence):
-                sentence_idx = future_to_sentence[future]
+            # Create a temporary file that will be automatically cleaned up
+            with tempfile.NamedTemporaryFile(suffix='.webm', delete=False) as temp_audio:
+                temp_path = temp_audio.name
+                audio_file.save(temp_path)
+            
+            # Transcribe the audio using Whisper
+            segments, info = whisper_model.transcribe(temp_path, beam_size=5, language="en", task="transcribe")
+            transcription = " ".join(segment.text for segment in segments)
+            
+            # Store user message in conversation history
+            conversation_store.add_message(chat_id, {
+                'type': 'user',
+                'text': transcription.strip()
+            })
+            
+            # Get AI response with conversation history
+            max_history_tokens = int(num_ctx * 0.75)  # Use 75% of context window for history
+            ai_response = get_ollama_response(transcription.strip(), chat_id, max_history_tokens)
+            
+            # Store AI response in conversation history
+            conversation_store.add_message(chat_id, {
+                'type': 'ai',
+                'text': ai_response
+            })
+            
+            # Log the transcription and language info
+            logger.info("Whisper Transcription:")
+            logger.info("-" * 40)
+            logger.info(f"Chat ID: {chat_id}")
+            logger.info(f"Language: {info.language} (probability: {info.language_probability:.2f})")
+            logger.info(transcription)
+            logger.info("-" * 40)
+            
+            logger.info("AI Response (after filtering):")
+            logger.info("-" * 40)
+            logger.info(f"Chat ID: {chat_id}")
+            logger.info(ai_response)
+            logger.info("-" * 40)
+            
+            # Split response into sentences
+            sentences = [s.strip() for s in re.split(r'[.!?]+', ai_response) if s.strip()]
+            
+            # Process sentences in parallel with Kokoro
+            MAX_WORKERS = 2 if torch.cuda.is_available() else 4
+            audio_segments = []
+            
+            with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                future_to_sentence = {
+                    executor.submit(process_sentence, sentence, kokoro_pipeline): i 
+                    for i, sentence in enumerate(sentences)
+                }
+                
+                # Create a list to store results in order
+                results = [None] * len(sentences)
+                
+                # Process completed sentences as they finish
+                for future in as_completed(future_to_sentence):
+                    sentence_idx = future_to_sentence[future]
+                    try:
+                        audio_data = future.result()
+                        if audio_data is not None:
+                            # Create unique temporary wav file
+                            wav_file = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+                            wav_files.append(wav_file.name)
+                            sf.write(wav_file.name, audio_data, 22050)
+                            
+                            # Read and encode the audio file
+                            with open(wav_file.name, 'rb') as audio_file:
+                                audio_base64 = base64.b64encode(audio_file.read()).decode('utf-8')
+                            
+                            # Store result with index for ordering
+                            results[sentence_idx] = {
+                                'text': sentences[sentence_idx],
+                                'audio': audio_base64
+                            }
+                    except Exception as e:
+                        logger.error(f"Error processing sentence {sentence_idx + 1}: {str(e)}")
+            
+            # Filter out None results
+            results = [r for r in results if r is not None]
+            
+            # Start background title generation
+            asyncio.run(update_chat_title_background(chat_id, conversation_store.get_history(chat_id)))
+            
+            return jsonify({
+                'success': True,
+                'transcription': transcription.strip(),
+                'response': {
+                    'agentMessage': ai_response,
+                    'segments': results
+                },
+                'language': {
+                    'detected': info.language,
+                    'probability': float(info.language_probability)
+                }
+            })
+        
+        except Exception as e:
+            logger.error(f"Error during processing: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+        
+        finally:
+            # Clean up all temporary files
+            if temp_path and os.path.exists(temp_path):
                 try:
-                    audio_data = future.result()
-                    if audio_data is not None:
-                        # Create unique temporary wav file
-                        wav_file = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
-                        wav_files.append(wav_file.name)
-                        sf.write(wav_file.name, audio_data, 22050)
-                        
-                        # Read and encode the audio file
-                        with open(wav_file.name, 'rb') as audio_file:
-                            audio_base64 = base64.b64encode(audio_file.read()).decode('utf-8')
-                        
-                        # Store result with index for ordering
-                        results[sentence_idx] = {
-                            'text': sentences[sentence_idx],
-                            'audio': audio_base64
-                        }
+                    os.unlink(temp_path)
                 except Exception as e:
-                    logger.error(f"Error processing sentence {sentence_idx + 1}: {str(e)}")
-        
-        # Filter out None results
-        results = [r for r in results if r is not None]
-        
-        # Start background title generation
-        asyncio.run(update_chat_title_background(session_id, conversation_store.get_history(session_id)))
-        
-        return jsonify({
-            'success': True,
-            'transcription': transcription.strip(),
-            'response': {
-                'agentMessage': ai_response,
-                'segments': results
-            },
-            'language': {
-                'detected': info.language,
-                'probability': float(info.language_probability)
-            }
-        })
-    
+                    logger.warning(f"Could not delete temporary file {temp_path}: {e}")
+            
+            # Clean up wav files
+            for wav_file in wav_files:
+                try:
+                    if os.path.exists(wav_file):
+                        os.unlink(wav_file)
+                except Exception as e:
+                    logger.warning(f"Could not delete temporary wav file {wav_file}: {e}")
+
     except Exception as e:
         logger.error(f"Error during processing: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
-    
-    finally:
-        # Clean up all temporary files
-        if temp_path and os.path.exists(temp_path):
-            try:
-                os.unlink(temp_path)
-            except Exception as e:
-                logger.warning(f"Could not delete temporary file {temp_path}: {e}")
-        
-        # Clean up wav files
-        for wav_file in wav_files:
-            try:
-                if os.path.exists(wav_file):
-                    os.unlink(wav_file)
-            except Exception as e:
-                logger.warning(f"Could not delete temporary wav file {wav_file}: {e}")
 
 if __name__ == '__main__':
     service = os.getenv('AI_SERVICE', 'ollama').lower()
