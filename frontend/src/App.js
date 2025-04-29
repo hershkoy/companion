@@ -386,6 +386,17 @@ function App() {
     }
   };
 
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      logger.info('Canceling recording...');
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      mediaRecorderRef.current = null;
+      chunksRef.current = [];
+      setIsRecording(false);
+      setError(null);
+    }
+  };
+
   const stopPlayback = () => {
     if (currentAudioRef.current) {
       logger.info('Stopping audio playback');
@@ -583,6 +594,15 @@ function App() {
               >
                 {isRecording ? 'Stop Recording' : 'Start Recording'}
               </button>
+              
+              {isRecording && (
+                <button 
+                  onClick={cancelRecording}
+                  className="cancel-button"
+                >
+                  Cancel Recording
+                </button>
+              )}
               
               {isPlaying && (
                 <button 
