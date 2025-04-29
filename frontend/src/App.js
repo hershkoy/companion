@@ -281,14 +281,25 @@ function App() {
 
   const startRecording = async () => {
     try {
+      let currentChatId = chatId;
+      
       // Check if we have an active chat, if not create one
-      if (!chatId) {
+      if (!currentChatId) {
         logger.info('[Chats] No active chat, creating one');
-        await createChat();
+        const newChat = await createChat();
+        currentChatId = newChat.id;
+        
+        // Update state in a single batch to prevent race conditions
+        setChats(prev => [
+          { ...newChat, isActive: true },
+          ...prev.map(chat => ({ ...chat, isActive: false }))
+        ]);
+        setChatId(currentChatId);
+        setConversation([]);
       }
 
       setError(null);
-      logger.info('Starting recording...', { chatId });
+      logger.info('Starting recording...', { chatId: currentChatId });
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
       chunksRef.current = [];
@@ -300,11 +311,11 @@ function App() {
       };
 
       mediaRecorderRef.current.onstop = async () => {
-        logger.info('Recording stopped, processing audio...', { chatId });
+        logger.info('Recording stopped, processing audio...', { chatId: currentChatId });
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.webm');
-        formData.append('sessionId', chatId);
+        formData.append('sessionId', currentChatId);
         formData.append('systemPrompt', systemPrompt);
         formData.append('num_ctx', numCtx.toString());
         
@@ -321,7 +332,7 @@ function App() {
           const data = await response.json();
           
           if (data.success) {
-            logger.info('Successfully processed audio', { chatId });
+            logger.info('Successfully processed audio', { chatId: currentChatId });
             // Show transcription immediately
             if (data.transcription) {
               setConversation(prev => [...prev, { type: 'user', text: data.transcription }]);
@@ -331,12 +342,12 @@ function App() {
             await processN8nResponse(data);
           } else {
             const errorMsg = data.error || 'Unknown error occurred';
-            logger.error('Transcription failed:', errorMsg, { chatId });
+            logger.error('Transcription failed:', errorMsg, { chatId: currentChatId });
             setError(errorMsg);
           }
         } catch (error) {
           const errorMessage = error.message || 'Error connecting to server';
-          logger.error('Error sending audio to server:', error, { chatId });
+          logger.error('Error sending audio to server:', error, { chatId: currentChatId });
           setError(errorMessage);
         }
       };
@@ -344,7 +355,7 @@ function App() {
       mediaRecorderRef.current.start();
       setIsRecording(true);
     } catch (error) {
-      logger.error('Error accessing microphone:', error, { chatId });
+      logger.error('Error accessing microphone:', error);
       setError('Error accessing microphone: ' + error.message);
     }
   };
