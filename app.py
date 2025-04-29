@@ -91,9 +91,19 @@ def convert_webm_to_wav(input_path, output_path):
 def get_ollama_response(prompt):
     """Get response from Ollama model with GPU acceleration"""
     url = os.getenv('OLLAMA_URL', 'http://localhost:11434/api/generate')
+
+    system_prompt = (
+        "You are a helpful and conversational assistant. "
+        "Match the length of the user's message most of the time. "
+        "Only elaborate if it is necessary to clarify or explain something important. "
+        "Be friendly, direct, and natural."
+    )
+
+    full_prompt = f"{system_prompt}\n\nUser: {prompt}\nAssistant:"
+
     data = {
         "model": os.getenv('OLLAMA_MODEL', 'deepseek-r1'),
-        "prompt": prompt,
+        "prompt": full_prompt,
         "stream": False,
         "options": {
             "num_gpu": 33,  # Use all GPU layers
