@@ -1,144 +1,102 @@
 import sqlite3
 from datetime import datetime
-import json
 import logging
+from typing import List, Dict, Optional
 
 logger = logging.getLogger('kokoro')
 
 class Database:
-    def __init__(self, db_path='kokoro.db'):
+    def __init__(self, db_path='database.db'):
         self.db_path = db_path
-        self.init_db()
+        self._init_db()
 
-    def get_connection(self):
-        return sqlite3.connect(self.db_path)
-
-    def init_db(self):
-        """Initialize the database with required tables."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            
-            # Create chats table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS chats (
+    def _init_db(self):
+        """Initialize SQLite database with required tables"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS sessions (
                     id TEXT PRIMARY KEY,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    title TEXT
+                    title TEXT,
+                    created_at TIMESTAMP,
+                    updated_at TIMESTAMP
                 )
             ''')
-            
-            # Create messages table
-            cursor.execute('''
+            conn.execute('''
                 CREATE TABLE IF NOT EXISTS messages (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    chat_id TEXT,
+                    session_id TEXT,
                     type TEXT,
                     text TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (chat_id) REFERENCES chats (id)
+                    created_at TIMESTAMP,
+                    FOREIGN KEY (session_id) REFERENCES sessions (id)
                 )
             ''')
-            
-            # Migrate existing sessions table if it exists
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='sessions'")
-            if cursor.fetchone():
-                logger.info("Migrating sessions table to chats")
-                # Copy data from sessions to chats
-                cursor.execute('''
-                    INSERT OR IGNORE INTO chats (id, created_at, last_updated, title)
-                    SELECT id, created_at, last_updated, title FROM sessions
-                ''')
-                # Update messages foreign key
-                cursor.execute('''
-                    UPDATE messages SET chat_id = session_id WHERE chat_id IS NULL
-                ''')
-                # Drop old table
-                cursor.execute('DROP TABLE sessions')
-                
             conn.commit()
+            logger.info(f"Database initialized at {self.db_path}")
 
-    def create_chat(self, chat_id: str, title: str = None) -> None:
-        """Create a new chat."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                'INSERT INTO chats (id, title) VALUES (?, ?)',
-                (chat_id, title or "New Chat")
+    def create_session(self, session_id: str, title: str) -> None:
+        """Create a new chat session"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                'INSERT INTO sessions (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)',
+                (session_id, title, datetime.now(), datetime.now())
             )
             conn.commit()
+        logger.info(f"Created new session: {session_id}")
 
-    def update_chat_title(self, chat_id: str, title: str) -> None:
-        """Update the title of a chat."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                'UPDATE chats SET title = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?',
-                (title, chat_id)
+    def update_session_title(self, session_id: str, title: str) -> None:
+        """Update the title of a chat session"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                'UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?',
+                (title, datetime.now(), session_id)
             )
             conn.commit()
+        logger.info(f"Updated title for session {session_id}: {title}")
 
-    def add_message(self, chat_id: str, message_type: str, text: str) -> None:
-        """Add a message to a chat."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                'INSERT INTO messages (chat_id, type, text) VALUES (?, ?, ?)',
-                (chat_id, message_type, text)
+    def add_message(self, session_id: str, message_type: str, text: str) -> None:
+        """Add a message to a chat session"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                'INSERT INTO messages (session_id, type, text, created_at) VALUES (?, ?, ?, ?)',
+                (session_id, message_type, text, datetime.now())
             )
-            # Update chat last_updated timestamp
-            cursor.execute(
-                'UPDATE chats SET last_updated = CURRENT_TIMESTAMP WHERE id = ?',
-                (chat_id,)
+            conn.execute(
+                'UPDATE sessions SET updated_at = ? WHERE id = ?',
+                (datetime.now(), session_id)
             )
             conn.commit()
+        logger.info(f"Added {message_type} message to session {session_id}")
 
-    def get_chat_messages(self, chat_id: str) -> list:
-        """Get all messages for a chat."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                'SELECT type, text FROM messages WHERE chat_id = ? ORDER BY created_at',
-                (chat_id,)
+    def get_messages(self, session_id: str) -> List[Dict[str, str]]:
+        """Get all messages for a chat session"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                'SELECT type, text FROM messages WHERE session_id = ? ORDER BY created_at',
+                (session_id,)
             )
-            return [{'type': msg[0], 'text': msg[1]} for msg in cursor.fetchall()]
+            return [{'type': row[0], 'text': row[1]} for row in cursor.fetchall()]
 
-    def get_all_chats(self) -> list:
-        """Get all chats with their latest message."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT 
-                    c.id,
-                    c.title,
-                    c.created_at,
-                    c.last_updated,
-                    m.text as latest_message
-                FROM chats c
-                LEFT JOIN messages m ON m.chat_id = c.id
-                WHERE m.id = (
-                    SELECT id FROM messages 
-                    WHERE chat_id = c.id 
-                    ORDER BY created_at DESC 
-                    LIMIT 1
-                )
-                ORDER BY c.last_updated DESC
-            ''')
+    def get_sessions(self) -> List[Dict[str, str]]:
+        """Get all chat sessions"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                'SELECT id, title, created_at, updated_at FROM sessions ORDER BY updated_at DESC'
+            )
             return [{
                 'id': row[0],
                 'title': row[1],
                 'created_at': row[2],
-                'last_updated': row[3],
-                'latest_message': row[4]
+                'updated_at': row[3]
             } for row in cursor.fetchall()]
 
-    def delete_chat(self, chat_id: str) -> None:
-        """Delete a chat and all its messages."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute('DELETE FROM messages WHERE chat_id = ?', (chat_id,))
-            cursor.execute('DELETE FROM chats WHERE id = ?', (chat_id,))
+    def delete_session(self, session_id: str) -> None:
+        """Delete a chat session and all its messages"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute('DELETE FROM messages WHERE session_id = ?', (session_id,))
+            conn.execute('DELETE FROM sessions WHERE id = ?', (session_id,))
             conn.commit()
+        logger.info(f"Deleted session: {session_id}")
 
 # Global database instance
 db = Database() 

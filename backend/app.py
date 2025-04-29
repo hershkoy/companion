@@ -583,29 +583,54 @@ def generate_title():
         # Prepare conversation for title generation
         conversation_text = "\n".join([f"{msg['type']}: {msg['text']}" for msg in messages])
         
-        # Call Ollama with the specific title generation prompt
-        response = await ollama.chat(
-            model="mistral",
-            messages=[
-                {"role": "system", "content": TITLE_SYSTEM_PROMPT},
-                {"role": "user", "content": f"Generate a title for this conversation:\n\n{conversation_text}"}
-            ]
-        )
+        # Use the existing Ollama API call pattern
+        url = os.getenv('OLLAMA_URL', 'http://localhost:11434/api/generate')
         
-        title = response.message.content.strip()
+        # Use the title-specific system prompt
+        title_system_prompt = """You are a helpful assistant that generates concise, descriptive titles for conversations.
+Your task is to create a brief, clear title that captures the main topic or theme of the conversation.
+Important: Output ONLY the title itself, without any preamble or explanation.
+The title should be 2-6 words long and use title case.
+Example good titles:
+- "AI Development Strategy"
+- "Personal Finance Planning"
+- "Home Automation Setup"
+"""
         
-        # Broadcast the title update via WebSocket
-        socketio.emit('session_title_update', {
-            'type': 'session_title_update',
-            'session_id': data.get('session_id'),
-            'title': title
-        })
+        prompt = f"{title_system_prompt}\n\nConversation:\n{conversation_text}\n\nTitle:"
         
+        response = requests.post(url, json={
+            "model": os.getenv('OLLAMA_MODEL', 'deepseek-r1'),
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "num_ctx": 2048
+            }
+        }, timeout=30)
+        
+        if response.status_code == 200:
+            title = response.json()['response'].strip()
+            # Remove any quotes that might be in the response
+            title = title.strip('"\'')
+            
+            # Broadcast the title update via WebSocket
+            broadcast_title_update(data.get('session_id'), title)
+            
+            return jsonify({
+                'success': True,
+                'title': title
+            })
+        else:
+            raise Exception(f"Ollama API error: {response.status_code}")
+            
+    except requests.exceptions.Timeout:
+        logger.error("Title generation timed out")
         return jsonify({
-            'success': True,
-            'title': title
-        })
-        
+            'success': False,
+            'error': "Title generation timed out after 30 seconds"
+        }), 500
     except Exception as e:
         logger.error(f"Error generating title: {str(e)}")
         return jsonify({
