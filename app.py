@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from faster_whisper import WhisperModel
 from kokoro import KPipeline
+from conversation_store import conversation_store
 import tempfile
 import os
 import torch
@@ -88,7 +89,7 @@ def convert_webm_to_wav(input_path, output_path):
         logger.error(f"FFmpeg error: {e.stderr.decode()}")
         return False
 
-def get_ollama_response(prompt):
+def get_ollama_response(prompt, session_id, max_tokens=None):
     """Get response from Ollama model with GPU acceleration"""
     url = os.getenv('OLLAMA_URL', 'http://localhost:11434/api/generate')
 
@@ -99,9 +100,18 @@ def get_ollama_response(prompt):
         "Be friendly, direct, and natural."
     )
 
-    print("prompt", prompt)
+    # Get conversation history within token limit
+    history = conversation_store.get_history(session_id, max_tokens)
+    history_text = ""
+    if history:
+        for msg in history:
+            role = "User" if msg['type'] == 'user' else "Assistant"
+            history_text += f"{role}: {msg['text']}\n"
 
-    full_prompt = f"{system_prompt}\n\nUser: {prompt}\nAssistant:"
+    print("prompt", prompt)
+    print("history", history_text)
+
+    full_prompt = f"{system_prompt}\n\n{history_text}User: {prompt}\nAssistant:"
 
     data = {
         "model": os.getenv('OLLAMA_MODEL', 'deepseek-r1'),
@@ -187,7 +197,7 @@ def get_ai_response(prompt, session_id):
     logger.info(f"Using AI service: {service} for session: {session_id}")
     
     if service == 'ollama':
-        return get_ollama_response(prompt)
+        return get_ollama_response(prompt, session_id)
     elif service == 'n8n':
         return get_n8n_response(prompt, session_id)
     else:
@@ -239,6 +249,7 @@ def transcribe_audio():
     
     audio_file = request.files['audio']
     session_id = request.form.get('sessionId', f'fallback-{datetime.now().strftime("%Y%m%d-%H%M%S")}')
+    num_ctx = int(request.form.get('num_ctx', '2048'))
     temp_path = None
     wav_files = []  # Keep track of temporary wav files
     
@@ -254,6 +265,22 @@ def transcribe_audio():
         segments, info = whisper_model.transcribe(temp_path, beam_size=5, language="en", task="transcribe")
         transcription = " ".join(segment.text for segment in segments)
         
+        # Store user message in conversation history
+        conversation_store.add_message(session_id, {
+            'type': 'user',
+            'text': transcription.strip()
+        })
+        
+        # Get AI response with conversation history
+        max_history_tokens = int(num_ctx * 0.75)  # Use 75% of context window for history
+        ai_response = get_ollama_response(transcription.strip(), session_id, max_history_tokens)
+        
+        # Store AI response in conversation history
+        conversation_store.add_message(session_id, {
+            'type': 'ai',
+            'text': ai_response
+        })
+        
         # Log the transcription and language info
         logger.info("Whisper Transcription:")
         logger.info("-" * 40)
@@ -261,33 +288,6 @@ def transcribe_audio():
         logger.info(f"Language: {info.language} (probability: {info.language_probability:.2f})")
         logger.info(transcription)
         logger.info("-" * 40)
-        
-        # Get AI response based on configured service
-        try:
-            ai_response = get_ai_response(transcription.strip(), session_id)
-        except Exception as e:
-            logger.error(f"Error getting AI response: {str(e)}")
-            return jsonify({
-                'success': False,
-                'error': str(e)
-            }), 500
-        
-        # If response is a dict (null case), handle it differently
-        if isinstance(ai_response, dict):
-            logger.info(f"Null input detected for session {session_id}, returning status response")
-            return jsonify({
-                'success': True,
-                'transcription': transcription.strip(),
-                'response': {
-                    'agentMessage': '',
-                    'segments': []
-                },
-                'status': 'null',
-                'language': {
-                    'detected': info.language,
-                    'probability': float(info.language_probability)
-                }
-            })
         
         logger.info("AI Response (after filtering):")
         logger.info("-" * 40)

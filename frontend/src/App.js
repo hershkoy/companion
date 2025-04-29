@@ -162,6 +162,7 @@ function App() {
         formData.append('audio', audioBlob, 'recording.webm');
         formData.append('sessionId', sessionId);
         formData.append('systemPrompt', systemPrompt);
+        formData.append('num_ctx', numCtx.toString());
         
         // Add conversation history within token limit
         const maxHistoryTokens = Math.floor(numCtx * 0.75);
