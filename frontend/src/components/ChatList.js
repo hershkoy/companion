@@ -62,7 +62,7 @@ const ChatList = ({
         {sessions.map((session) => (
           <div
             key={session.id}
-            className={`session-item ${currentSession?.id === session.id ? 'active' : ''}`}
+            className={`session-item ${session.id === currentSession?.id || session.isActive ? 'active' : ''}`}
             onClick={() => onSelectSession(session.id)}
           >
             <div className="session-content">
@@ -74,9 +74,15 @@ const ChatList = ({
                   onBlur={() => handleUpdateTitle(session.id)}
                   onKeyDown={(e) => handleKeyPress(e, session.id)}
                   autoFocus
+                  onClick={(e) => e.stopPropagation()}
                 />
               ) : (
-                <span className="session-title">{session.title || 'Untitled Chat'}</span>
+                <div className="session-info">
+                  <span className="session-title">{session.title || 'Untitled Chat'}</span>
+                  {session.latest_message && (
+                    <div className="session-preview">{session.latest_message}</div>
+                  )}
+                </div>
               )}
               <div className="session-actions">
                 <button

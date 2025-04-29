@@ -17,6 +17,9 @@ from dotenv import load_dotenv, find_dotenv
 from pathlib import Path
 import logging
 import sys
+import asyncio
+from flask_sock import Sock
+import json
 
 # Configure logging
 def setup_logger():
@@ -66,12 +69,67 @@ logger.info(f"OLLAMA_URL={os.getenv('OLLAMA_URL')}")
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
+sock = Sock(app)
 
 # Initialize models
 logger.info("Loading models...")
 whisper_model = WhisperModel("large-v3", device="cuda", compute_type="float16")
 kokoro_pipeline = KPipeline(lang_code='a', device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
 logger.info("Models loaded successfully!")
+
+# Store WebSocket connections
+ws_connections = set()
+
+@sock.route('/ws')
+def ws_handler(ws):
+    """Handle WebSocket connections"""
+    logger.info("New WebSocket connection established")
+    ws_connections.add(ws)
+    try:
+        while True:
+            # Keep connection alive and handle incoming messages
+            message = ws.receive()
+            if message is None:
+                break
+            # Echo back to confirm connection
+            ws.send(json.dumps({"type": "ping", "status": "ok"}))
+    except Exception as e:
+        logger.error(f"WebSocket error: {str(e)}")
+    finally:
+        logger.info("WebSocket connection closed")
+        ws_connections.remove(ws)
+
+def broadcast_title_update(session_id, title):
+    """Broadcast title update to all connected clients"""
+    if not ws_connections:
+        logger.warning("No WebSocket connections available for broadcasting")
+        return
+        
+    message = json.dumps({
+        'type': 'title_update',
+        'session_id': session_id,
+        'title': title
+    })
+    
+    logger.info(f"Broadcasting title update: {message}")
+    dead_connections = set()
+    
+    for ws in ws_connections:
+        try:
+            ws.send(message)
+            logger.debug(f"Title update sent successfully to a client")
+        except Exception as e:
+            logger.error(f"Error sending WebSocket message: {str(e)}")
+            dead_connections.add(ws)
+    
+    # Clean up dead connections
+    for ws in dead_connections:
+        try:
+            ws.close()
+        except:
+            pass
+        ws_connections.remove(ws)
+        logger.info("Removed dead WebSocket connection")
 
 def convert_webm_to_wav(input_path, output_path):
     """Convert webm file to wav using ffmpeg"""
@@ -330,6 +388,63 @@ def get_session_messages(session_id):
             'error': str(e)
         }), 500
 
+def estimate_token_count(text):
+    """Estimate token count based on character length (rough approximation)"""
+    return len(text) // 4
+
+def should_generate_title(messages):
+    """Check if we should generate a title based on conversation length"""
+    total_tokens = sum(estimate_token_count(msg['text']) for msg in messages)
+    logger.info(f"Total tokens in conversation: {total_tokens}")
+    return total_tokens >= 700
+
+def generate_chat_title(messages):
+    """Generate a title for the chat using LLM"""
+    logger.info("Starting chat title generation...")
+    
+    # Create a prompt for title generation
+    conversation_text = "\n".join([
+        f"{'User' if msg['type'] == 'user' else 'Assistant'}: {msg['text']}"
+        for msg in messages
+    ])
+    
+    system_prompt = """You are a highly efficient chat title generator.
+    Your task is to create a concise, descriptive title (max 40 chars) for this conversation.
+    Focus on the main topic or theme discussed.
+    Do not use quotes or special characters.
+    Respond with ONLY the title, nothing else."""
+    
+    full_prompt = f"{system_prompt}\n\nConversation:\n{conversation_text}\n\nTitle:"
+    
+    try:
+        logger.info("Sending title generation request to LLM...")
+        title = get_ollama_response(full_prompt, None, max_tokens=50).strip()
+        logger.info(f"Generated title: {title}")
+        return title[:40]  # Ensure max length
+    except Exception as e:
+        logger.error(f"Error generating chat title: {str(e)}")
+        return None
+
+async def update_chat_title_background(session_id, messages):
+    """Update chat title in the background"""
+    if not should_generate_title(messages):
+        return
+        
+    logger.info(f"Starting background title generation for session {session_id}")
+    
+    try:
+        with ThreadPoolExecutor() as executor:
+            loop = asyncio.get_event_loop()
+            title = await loop.run_in_executor(executor, generate_chat_title, messages)
+            
+            if title:
+                logger.info(f"Updating title for session {session_id}: {title}")
+                conversation_store.update_session_title(session_id, title)
+                # Broadcast title update to all clients
+                broadcast_title_update(session_id, title)
+    except Exception as e:
+        logger.error(f"Error in background title generation: {str(e)}")
+
 @app.route('/api/transcribe', methods=['POST'])
 def transcribe_audio():
     if 'audio' not in request.files:
@@ -428,6 +543,9 @@ def transcribe_audio():
         
         # Filter out None results
         results = [r for r in results if r is not None]
+        
+        # Start background title generation
+        asyncio.run(update_chat_title_background(session_id, conversation_store.get_history(session_id)))
         
         return jsonify({
             'success': True,

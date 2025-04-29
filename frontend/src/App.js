@@ -44,6 +44,9 @@ const getConversationHistory = (conversation, maxTokens) => {
   return history;
 };
 
+// Add WebSocket connection
+const WS_URL = 'ws://localhost:5000/ws';
+
 function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [conversation, setConversation] = useState([]);
@@ -63,10 +66,58 @@ function App() {
   const audioQueueRef = useRef([]);
   const isProcessingRef = useRef(false);
   const messagesEndRef = useRef(null);
+  const [wsConnected, setWsConnected] = useState(false);
+  const wsRef = useRef(null);
 
-  // Load sessions on mount
+  // Load sessions on mount and set up auto-refresh
   useEffect(() => {
     loadSessions();
+    // Refresh sessions every 5 seconds
+    const interval = setInterval(loadSessions, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Initialize WebSocket connection
+  useEffect(() => {
+    const connectWebSocket = () => {
+      wsRef.current = new WebSocket(WS_URL);
+
+      wsRef.current.onopen = () => {
+        logger.info('WebSocket connected');
+        setWsConnected(true);
+      };
+
+      wsRef.current.onclose = () => {
+        logger.info('WebSocket disconnected');
+        setWsConnected(false);
+        // Attempt to reconnect after 5 seconds
+        setTimeout(connectWebSocket, 5000);
+      };
+
+      wsRef.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'title_update') {
+            logger.info('Received title update:', data);
+            setSessions(prev => prev.map(s => 
+              s.id === data.session_id 
+                ? { ...s, title: data.title } 
+                : s
+            ));
+          }
+        } catch (error) {
+          logger.error('Error processing WebSocket message:', error);
+        }
+      };
+    };
+
+    connectWebSocket();
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
   }, []);
 
   // Load sessions from the backend
@@ -79,6 +130,18 @@ function App() {
         // If no current session, select the most recent one
         if (!sessionId && data.sessions.length > 0) {
           await selectSession(data.sessions[0].id);
+        }
+        // Update current session data if it exists
+        else if (sessionId) {
+          const currentSession = data.sessions.find(s => s.id === sessionId);
+          if (currentSession) {
+            // Update session data if needed
+            const sessionResponse = await fetch(`http://localhost:5000/api/sessions/${sessionId}/messages`);
+            const sessionData = await sessionResponse.json();
+            if (sessionData.success) {
+              setConversation(sessionData.messages);
+            }
+          }
         }
       }
     } catch (error) {
@@ -99,8 +162,10 @@ function App() {
       });
       const data = await response.json();
       if (data.success) {
+        // Add new session to the list and select it
         setSessions(prev => [data.session, ...prev]);
         await selectSession(data.session.id);
+        setConversation([]); // Clear conversation for new chat
       }
     } catch (error) {
       logger.error('Error creating session:', error);
@@ -111,12 +176,17 @@ function App() {
   // Select a chat session
   const selectSession = async (id) => {
     try {
+      setSessionId(id); // Update session ID immediately
       const response = await fetch(`http://localhost:5000/api/sessions/${id}/messages`);
       const data = await response.json();
       if (data.success) {
-        setSessionId(id);
         setConversation(data.messages);
         setError(null);
+        // Update UI to show this is the current session
+        setSessions(prev => prev.map(s => ({
+          ...s,
+          isActive: s.id === id
+        })));
       }
     } catch (error) {
       logger.error('Error loading session messages:', error);
