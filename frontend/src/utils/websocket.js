@@ -1,6 +1,6 @@
 import logger from './logger';
 
-const WS_URL = 'ws://localhost:5000/ws';
+const WS_URL = 'ws://localhost:5000/backend/ws';
 
 class WebSocketManager {
   constructor() {

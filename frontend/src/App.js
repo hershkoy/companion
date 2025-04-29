@@ -45,14 +45,8 @@ const getConversationHistory = (conversation, maxTokens) => {
   return history;
 };
 
-// Add WebSocket connection
-const WS_URL = 'ws://localhost:5000/ws';
-
-// Add a stable reference outside the component
-const globalWsRef = {
-  instance: null,
-  isInitializing: false
-};
+// Add API base URL constant
+const API_BASE_URL = 'http://localhost:5000/backend';
 
 function App() {
   const [isRecording, setIsRecording] = useState(false);
@@ -82,7 +76,7 @@ function App() {
   const loadSessions = useCallback(async () => {
     try {
       logger.info('[Sessions] Fetching sessions from backend');
-      const response = await fetch('http://localhost:5000/api/sessions');
+      const response = await fetch(`${API_BASE_URL}/api/sessions`);
       const data = await response.json();
       if (data.success) {
         logger.info(`[Sessions] Loaded ${data.sessions.length} sessions`);
@@ -161,7 +155,7 @@ function App() {
   const createSession = async () => {
     try {
       logger.info('[Sessions] Creating new chat session');
-      const response = await fetch('http://localhost:5000/api/sessions', {
+      const response = await fetch(`${API_BASE_URL}/api/sessions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -198,7 +192,7 @@ function App() {
       })));
       setSessionId(id);
       
-      const response = await fetch(`http://localhost:5000/api/sessions/${id}/messages`);
+      const response = await fetch(`${API_BASE_URL}/api/sessions/${id}/messages`);
       const data = await response.json();
       if (data.success) {
         setConversation(data.messages);
@@ -213,7 +207,7 @@ function App() {
   // Delete a chat session
   const deleteSession = async (id) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/sessions/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/sessions/${id}`, {
         method: 'DELETE',
       });
       const data = await response.json();
@@ -238,7 +232,7 @@ function App() {
   // Update session title
   const updateSessionTitle = async (id, title) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/sessions/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/sessions/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -314,7 +308,7 @@ function App() {
 
       // Otherwise, send to TTS service
       logger.info('Sending to kokoro for TTS:', agentMessage);
-      const ttsResponse = await fetch('http://localhost:5000/api/tts', {
+      const ttsResponse = await fetch(`${API_BASE_URL}/api/tts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -368,7 +362,7 @@ function App() {
         formData.append('conversationHistory', JSON.stringify(history));
 
         try {
-          const response = await fetch('http://localhost:5000/api/transcribe', {
+          const response = await fetch(`${API_BASE_URL}/api/transcribe`, {
             method: 'POST',
             body: formData,
           });

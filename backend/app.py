@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from faster_whisper import WhisperModel
 from kokoro import KPipeline
@@ -80,7 +80,7 @@ logger.info("Models loaded successfully!")
 # Store WebSocket connections
 ws_connections = set()
 
-@sock.route('/ws')
+@sock.route('/backend/ws')
 def ws_handler(ws):
     """Handle WebSocket connections"""
     logger.info("New WebSocket connection established")
@@ -300,7 +300,7 @@ def process_sentence(sentence, pipeline):
         logger.error(f"Error processing TTS for sentence: {str(e)}")
         return None
 
-@app.route('/api/sessions', methods=['GET'])
+@app.route('/backend/api/sessions', methods=['GET'])
 def get_sessions():
     """Get all chat sessions."""
     try:
@@ -316,7 +316,7 @@ def get_sessions():
             'error': str(e)
         }), 500
 
-@app.route('/api/sessions', methods=['POST'])
+@app.route('/backend/api/sessions', methods=['POST'])
 def create_session():
     """Create a new chat session."""
     try:
@@ -340,7 +340,7 @@ def create_session():
             'error': str(e)
         }), 500
 
-@app.route('/api/sessions/<session_id>', methods=['PUT'])
+@app.route('/backend/api/sessions/<session_id>', methods=['PUT'])
 def update_session(session_id):
     """Update a chat session."""
     try:
@@ -357,7 +357,7 @@ def update_session(session_id):
             'error': str(e)
         }), 500
 
-@app.route('/api/sessions/<session_id>', methods=['DELETE'])
+@app.route('/backend/api/sessions/<session_id>', methods=['DELETE'])
 def delete_session(session_id):
     """Delete a chat session."""
     try:
@@ -372,7 +372,7 @@ def delete_session(session_id):
             'error': str(e)
         }), 500
 
-@app.route('/api/sessions/<session_id>/messages', methods=['GET'])
+@app.route('/backend/api/sessions/<session_id>/messages', methods=['GET'])
 def get_session_messages(session_id):
     """Get all messages for a chat session."""
     try:
@@ -445,7 +445,7 @@ async def update_chat_title_background(session_id, messages):
     except Exception as e:
         logger.error(f"Error in background title generation: {str(e)}")
 
-@app.route('/api/transcribe', methods=['POST'])
+@app.route('/backend/api/transcribe', methods=['POST'])
 def transcribe_audio():
     if 'audio' not in request.files:
         return jsonify({'error': 'No audio file provided'}), 400
