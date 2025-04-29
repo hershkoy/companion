@@ -70,12 +70,9 @@ function App() {
   const wsRef = useRef(null);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
-  // Load sessions on mount and set up auto-refresh
+  // Load sessions only on mount
   useEffect(() => {
     loadSessions();
-    // Refresh sessions every 5 seconds
-    const interval = setInterval(loadSessions, 5000);
-    return () => clearInterval(interval);
   }, []);
 
   // Initialize WebSocket connection
@@ -100,11 +97,8 @@ function App() {
           const data = JSON.parse(event.data);
           if (data.type === 'title_update') {
             logger.info('Received title update:', data);
-            setSessions(prev => prev.map(s => 
-              s.id === data.session_id 
-                ? { ...s, title: data.title } 
-                : s
-            ));
+            // Update the session title and reload sessions to get latest data
+            loadSessions();
           }
         } catch (error) {
           logger.error('Error processing WebSocket message:', error);
