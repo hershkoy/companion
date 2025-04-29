@@ -56,3 +56,4 @@ logs/
 
 .env
 kokoro.log
+kokoro.db

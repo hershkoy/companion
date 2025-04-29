@@ -1,11 +1,12 @@
 from typing import Dict, List, Optional
 import logging
+from database import db
 
 logger = logging.getLogger('kokoro')
 
 class ConversationStore:
     def __init__(self):
-        # Dictionary to store conversations by session ID
+        # In-memory cache of conversations
         self._conversations: Dict[str, List[dict]] = {}
         
     def add_message(self, session_id: str, message: dict) -> None:
@@ -16,9 +17,12 @@ class ConversationStore:
             message: Dict containing 'type' ('user' or 'ai') and 'text' keys
         """
         if session_id not in self._conversations:
-            self._conversations[session_id] = []
+            # Load from database if not in memory
+            self._conversations[session_id] = db.get_session_messages(session_id)
             
         self._conversations[session_id].append(message)
+        # Persist to database
+        db.add_message(session_id, message['type'], message['text'])
         logger.info(f"Added message to session {session_id}: {message}")
         
     def get_history(self, session_id: str, max_tokens: Optional[int] = None) -> List[dict]:
@@ -32,7 +36,8 @@ class ConversationStore:
             List of message dictionaries
         """
         if session_id not in self._conversations:
-            return []
+            # Load from database if not in memory
+            self._conversations[session_id] = db.get_session_messages(session_id)
             
         history = self._conversations[session_id]
         
@@ -63,7 +68,9 @@ class ConversationStore:
         """
         if session_id in self._conversations:
             del self._conversations[session_id]
-            logger.info(f"Cleared conversation history for session {session_id}")
+        # Delete from database
+        db.delete_session(session_id)
+        logger.info(f"Cleared conversation history for session {session_id}")
             
     def get_all_sessions(self) -> List[str]:
         """Get all active session IDs.
@@ -71,7 +78,28 @@ class ConversationStore:
         Returns:
             List of session IDs
         """
-        return list(self._conversations.keys())
+        return db.get_all_sessions()
+
+    def create_session(self, session_id: str, title: str = None) -> None:
+        """Create a new chat session.
+        
+        Args:
+            session_id: The session identifier
+            title: Optional title for the session
+        """
+        db.create_session(session_id, title)
+        self._conversations[session_id] = []
+        logger.info(f"Created new session: {session_id}")
+
+    def update_session_title(self, session_id: str, title: str) -> None:
+        """Update the title of a session.
+        
+        Args:
+            session_id: The session identifier
+            title: New title for the session
+        """
+        db.update_session_title(session_id, title)
+        logger.info(f"Updated title for session {session_id}: {title}")
 
 # Global instance
 conversation_store = ConversationStore() 

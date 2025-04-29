@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import './App.css';
 import logger from './utils/logger';
+import ChatList from './components/ChatList';
 
 // Simple token count estimation (approximately 4 chars per token)
 const estimateTokenCount = (text) => {
@@ -49,6 +50,7 @@ function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState(null);
   const [sessionId, setSessionId] = useState('');
+  const [sessions, setSessions] = useState([]);
   const [systemPrompt, setSystemPrompt] = useState(
     `You are a helpful and conversational assistant. Match the length of the user's message most of the time. Only elaborate if it is necessary to clarify or explain something important. Be friendly, direct, and natural.`
   );
@@ -61,6 +63,113 @@ function App() {
   const audioQueueRef = useRef([]);
   const isProcessingRef = useRef(false);
   const messagesEndRef = useRef(null);
+
+  // Load sessions on mount
+  useEffect(() => {
+    loadSessions();
+  }, []);
+
+  // Load sessions from the backend
+  const loadSessions = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/sessions');
+      const data = await response.json();
+      if (data.success) {
+        setSessions(data.sessions);
+        // If no current session, select the most recent one
+        if (!sessionId && data.sessions.length > 0) {
+          await selectSession(data.sessions[0].id);
+        }
+      }
+    } catch (error) {
+      logger.error('Error loading sessions:', error);
+      setError('Error loading chat sessions');
+    }
+  };
+
+  // Create a new chat session
+  const createSession = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: 'New Chat' }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSessions(prev => [data.session, ...prev]);
+        await selectSession(data.session.id);
+      }
+    } catch (error) {
+      logger.error('Error creating session:', error);
+      setError('Error creating new chat');
+    }
+  };
+
+  // Select a chat session
+  const selectSession = async (id) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/sessions/${id}/messages`);
+      const data = await response.json();
+      if (data.success) {
+        setSessionId(id);
+        setConversation(data.messages);
+        setError(null);
+      }
+    } catch (error) {
+      logger.error('Error loading session messages:', error);
+      setError('Error loading chat messages');
+    }
+  };
+
+  // Delete a chat session
+  const deleteSession = async (id) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/sessions/${id}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSessions(prev => prev.filter(s => s.id !== id));
+        if (sessionId === id) {
+          const remainingSessions = sessions.filter(s => s.id !== id);
+          if (remainingSessions.length > 0) {
+            await selectSession(remainingSessions[0].id);
+          } else {
+            setSessionId('');
+            setConversation([]);
+          }
+        }
+      }
+    } catch (error) {
+      logger.error('Error deleting session:', error);
+      setError('Error deleting chat');
+    }
+  };
+
+  // Update session title
+  const updateSessionTitle = async (id, title) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/sessions/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSessions(prev => prev.map(s => 
+          s.id === id ? { ...s, title } : s
+        ));
+      }
+    } catch (error) {
+      logger.error('Error updating session title:', error);
+      setError('Error updating chat title');
+    }
+  };
 
   // Generate session ID on page load
   useEffect(() => {
@@ -248,99 +357,109 @@ function App() {
 
   return (
     <div className="App">
-      <header className="App-header">
-        <h1>Audio Chat Assistant</h1>
-        
-        <div className="system-prompt-container">
-          <div className="system-prompt-header">
-            <h3>System Prompt</h3>
-            <div className="header-controls">
-              <div className="context-window-control">
-                <span>Context:</span>
-                <input
-                  type="number"
-                  value={numCtx}
-                  onChange={(e) => setNumCtx(Math.max(1, parseInt(e.target.value) || 0))}
-                  className="context-window-input"
-                  min="1"
-                />
-              </div>
-              <button 
-                onClick={() => setIsEditingPrompt(!isEditingPrompt)}
-                className="edit-prompt-button"
-              >
-                {isEditingPrompt ? 'Save' : 'Edit'}
-              </button>
-            </div>
-          </div>
-          {isEditingPrompt ? (
-            <textarea
-              value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
-              className="system-prompt-input"
-              rows="3"
-            />
-          ) : (
-            <div className="system-prompt-display">
-              {systemPrompt}
-            </div>
-          )}
-        </div>
-        
-        <div className="chat-container">
-          <div className="messages">
-            {conversation.map((message, index) => (
-              <div key={index} className={`message ${message.type}`}>
-                <div className="message-content">
-                  {message.text}
-                  <div className="token-count">
-                    {message.type === 'user' ? (
-                      <>
-                        ~{estimateTokenCount(message.text)} tokens
-                        <div className="total-context-tokens">
-                          Total context: ~{calculateTotalContextTokens(
-                            message.text,
-                            conversation.slice(0, index),
-                            systemPrompt
-                          )} tokens
-                        </div>
-                      </>
-                    ) : (
-                      <>~{estimateTokenCount(message.text)} tokens</>
-                    )}
-                  </div>
+      <ChatList
+        sessions={sessions}
+        currentSession={sessions.find(s => s.id === sessionId)}
+        onSelectSession={selectSession}
+        onCreateSession={createSession}
+        onDeleteSession={deleteSession}
+        onUpdateSessionTitle={updateSessionTitle}
+      />
+      <div className="main-content">
+        <header className="App-header">
+          <h1>Audio Chat Assistant</h1>
+          
+          <div className="system-prompt-container">
+            <div className="system-prompt-header">
+              <h3>System Prompt</h3>
+              <div className="header-controls">
+                <div className="context-window-control">
+                  <span>Context:</span>
+                  <input
+                    type="number"
+                    value={numCtx}
+                    onChange={(e) => setNumCtx(Math.max(1, parseInt(e.target.value) || 0))}
+                    className="context-window-input"
+                    min="1"
+                  />
                 </div>
+                <button 
+                  onClick={() => setIsEditingPrompt(!isEditingPrompt)}
+                  className="edit-prompt-button"
+                >
+                  {isEditingPrompt ? 'Save' : 'Edit'}
+                </button>
               </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-
-          <div className="control-buttons">
-            <button 
-              onClick={isRecording ? stopRecording : startRecording}
-              className={`record-button ${isRecording ? 'recording' : ''}`}
-            >
-              {isRecording ? 'Stop Recording' : 'Start Recording'}
-            </button>
-            
-            {isPlaying && (
-              <button 
-                onClick={stopPlayback}
-                className="stop-button"
-              >
-                Stop Playback
-              </button>
+            </div>
+            {isEditingPrompt ? (
+              <textarea
+                value={systemPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value)}
+                className="system-prompt-input"
+                rows="3"
+              />
+            ) : (
+              <div className="system-prompt-display">
+                {systemPrompt}
+              </div>
             )}
           </div>
-        </div>
+          
+          <div className="chat-container">
+            <div className="messages">
+              {conversation.map((message, index) => (
+                <div key={index} className={`message ${message.type}`}>
+                  <div className="message-content">
+                    {message.text}
+                    <div className="token-count">
+                      {message.type === 'user' ? (
+                        <>
+                          ~{estimateTokenCount(message.text)} tokens
+                          <div className="total-context-tokens">
+                            Total context: ~{calculateTotalContextTokens(
+                              message.text,
+                              conversation.slice(0, index),
+                              systemPrompt
+                            )} tokens
+                          </div>
+                        </>
+                      ) : (
+                        <>~{estimateTokenCount(message.text)} tokens</>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
 
-        {error && (
-          <div className="error-message">
-            <h3>Error</h3>
-            <p>{error}</p>
+            <div className="control-buttons">
+              <button 
+                onClick={isRecording ? stopRecording : startRecording}
+                className={`record-button ${isRecording ? 'recording' : ''}`}
+              >
+                {isRecording ? 'Stop Recording' : 'Start Recording'}
+              </button>
+              
+              {isPlaying && (
+                <button 
+                  onClick={stopPlayback}
+                  className="stop-button"
+                >
+                  Stop Playback
+                </button>
+              )}
+            </div>
           </div>
-        )}
-      </header>
+
+          {error && (
+            <div className="error-message">
+              <h3>Error</h3>
+              <p>{error}</p>
+            </div>
+          )}
+        </header>
+      </div>
     </div>
   );
 }

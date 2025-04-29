@@ -242,13 +242,105 @@ def process_sentence(sentence, pipeline):
         logger.error(f"Error processing TTS for sentence: {str(e)}")
         return None
 
+@app.route('/api/sessions', methods=['GET'])
+def get_sessions():
+    """Get all chat sessions."""
+    try:
+        sessions = conversation_store.get_all_sessions()
+        return jsonify({
+            'success': True,
+            'sessions': sessions
+        })
+    except Exception as e:
+        logger.error(f"Error getting sessions: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/sessions', methods=['POST'])
+def create_session():
+    """Create a new chat session."""
+    try:
+        session_id = f'session-{datetime.now().strftime("%Y%m%d-%H%M%S")}-{os.urandom(3).hex()}'
+        title = request.json.get('title', 'New Chat')
+        conversation_store.create_session(session_id, title)
+        return jsonify({
+            'success': True,
+            'session': {
+                'id': session_id,
+                'title': title,
+                'created_at': datetime.now().isoformat(),
+                'last_updated': datetime.now().isoformat(),
+                'latest_message': None
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error creating session: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/sessions/<session_id>', methods=['PUT'])
+def update_session(session_id):
+    """Update a chat session."""
+    try:
+        title = request.json.get('title')
+        if title:
+            conversation_store.update_session_title(session_id, title)
+        return jsonify({
+            'success': True
+        })
+    except Exception as e:
+        logger.error(f"Error updating session: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/sessions/<session_id>', methods=['DELETE'])
+def delete_session(session_id):
+    """Delete a chat session."""
+    try:
+        conversation_store.clear_session(session_id)
+        return jsonify({
+            'success': True
+        })
+    except Exception as e:
+        logger.error(f"Error deleting session: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/sessions/<session_id>/messages', methods=['GET'])
+def get_session_messages(session_id):
+    """Get all messages for a chat session."""
+    try:
+        messages = conversation_store.get_history(session_id)
+        return jsonify({
+            'success': True,
+            'messages': messages
+        })
+    except Exception as e:
+        logger.error(f"Error getting session messages: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/transcribe', methods=['POST'])
 def transcribe_audio():
     if 'audio' not in request.files:
         return jsonify({'error': 'No audio file provided'}), 400
     
     audio_file = request.files['audio']
-    session_id = request.form.get('sessionId', f'fallback-{datetime.now().strftime("%Y%m%d-%H%M%S")}')
+    session_id = request.form.get('sessionId')
+    if not session_id:
+        session_id = f'session-{datetime.now().strftime("%Y%m%d-%H%M%S")}-{os.urandom(3).hex()}'
+        conversation_store.create_session(session_id)
+        
     num_ctx = int(request.form.get('num_ctx', '2048'))
     temp_path = None
     wav_files = []  # Keep track of temporary wav files
