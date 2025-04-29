@@ -7,6 +7,22 @@ const estimateTokenCount = (text) => {
   return Math.ceil(text.length / 4);
 };
 
+// Calculate total context tokens including system prompt and history
+const calculateTotalContextTokens = (currentMessage, conversation, systemPrompt) => {
+  let total = estimateTokenCount(systemPrompt); // System prompt tokens
+  
+  // Add tokens from conversation history
+  for (const msg of conversation) {
+    if (msg.type === 'system') continue;
+    total += estimateTokenCount(msg.text);
+  }
+  
+  // Add current message tokens
+  total += estimateTokenCount(currentMessage);
+  
+  return total;
+};
+
 // Get conversation history within token limit
 const getConversationHistory = (conversation, maxTokens) => {
   const history = [];
@@ -278,7 +294,20 @@ function App() {
                 <div className="message-content">
                   {message.text}
                   <div className="token-count">
-                    ~{estimateTokenCount(message.text)} tokens
+                    {message.type === 'user' ? (
+                      <>
+                        ~{estimateTokenCount(message.text)} tokens
+                        <div className="total-context-tokens">
+                          Total context: ~{calculateTotalContextTokens(
+                            message.text,
+                            conversation.slice(0, index),
+                            systemPrompt
+                          )} tokens
+                        </div>
+                      </>
+                    ) : (
+                      <>~{estimateTokenCount(message.text)} tokens</>
+                    )}
                   </div>
                 </div>
               </div>

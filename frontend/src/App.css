@@ -244,6 +244,16 @@
   font-style: italic;
 }
 
+.total-context-tokens {
+  font-size: 0.9em;
+  margin-top: 2px;
+  color: #888;
+}
+
+.message.user .total-context-tokens {
+  color: #2d6a30;
+}
+
 .message.ai .token-count {
   color: #4a90e2;
 }
