@@ -20,8 +20,6 @@ import sys
 import asyncio
 from flask_sock import Sock
 import json
-from flask_socketio import SocketIO
-import websockets
 from config import Config
 from services.websocket_service import WebSocketService
 from services.audio_service import AudioService
@@ -77,8 +75,6 @@ def create_app(config_class=Config):
     """Application factory pattern for Flask app."""
     app = Flask(__name__)
     CORS(app)  # Enable CORS for all routes
-    socketio = SocketIO(app, cors_allowed_origins="*")
-    sock = Sock(app)
     
     # Load config
     app.config.from_object(config_class)
@@ -94,63 +90,13 @@ def create_app(config_class=Config):
     logger.info("Models loaded successfully!")
 
     # Initialize services
-    websocket_service = WebSocketService(app)
+    websocket_service = WebSocketService(app)  # This will set up the WebSocket routes
     ai_service = AIService(conversation_store)
-    audio_service = AudioService(whisper_model, kokoro_pipeline)  # These should be initialized elsewhere
-    
-    # Store WebSocket connections
-    ws_connections = set()
-
-    @sock.route('/backend/ws')
-    def ws_handler(ws):
-        """Handle WebSocket connections"""
-        logger.info("New WebSocket connection established")
-        ws_connections.add(ws)
-        try:
-            while True:
-                # Keep connection alive and handle incoming messages
-                message = ws.receive()
-                if message is None:
-                    break
-                # Echo back to confirm connection
-                ws.send(json.dumps({"type": "ping", "status": "ok"}))
-        except Exception as e:
-            logger.error(f"WebSocket error: {str(e)}")
-        finally:
-            logger.info("WebSocket connection closed")
-            ws_connections.remove(ws)
+    audio_service = AudioService(whisper_model, kokoro_pipeline)
 
     def broadcast_title_update(chat_id, title):
         """Broadcast title update to all connected clients"""
-        if not ws_connections:
-            logger.warning("No WebSocket connections available for broadcasting")
-            return
-        
-        message = json.dumps({
-            'type': 'session_title_update',  # Keep this for backward compatibility
-            'session_id': chat_id,  # Keep this for backward compatibility
-            'title': title
-        })
-        
-        logger.info(f"Broadcasting title update: {message}")
-        dead_connections = set()
-        
-        for ws in ws_connections:
-            try:
-                ws.send(message)
-                logger.debug(f"Title update sent successfully to a client")
-            except Exception as e:
-                logger.error(f"Error sending WebSocket message: {str(e)}")
-                dead_connections.add(ws)
-        
-        # Clean up dead connections
-        for ws in dead_connections:
-            try:
-                ws.close()
-            except:
-                pass
-            ws_connections.remove(ws)
-            logger.info("Removed dead WebSocket connection")
+        websocket_service.broadcast_title_update(chat_id, title)
 
     def convert_webm_to_wav(input_path, output_path):
         """Convert webm file to wav using ffmpeg"""

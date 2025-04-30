@@ -4,11 +4,18 @@ import os
 
 logger = logging.getLogger(__name__)
 
-def create_tables(db_path: str = "kokoro.db"):
+def create_tables(db_path: str = None):
     """Create all required tables in the SQLite database."""
+    if db_path is None:
+        # Use the backend directory as the base
+        db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database.db")
+    
+    conn = None
     try:
-        # Ensure the db directory exists
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        # Create the database directory if it doesn't exist
+        db_dir = os.path.dirname(db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
         
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
@@ -72,13 +79,17 @@ def create_tables(db_path: str = "kokoro.db"):
         """)
 
         conn.commit()
-        logger.info("Successfully created all database tables")
+        logger.info(f"Successfully created all database tables at {db_path}")
 
     except sqlite3.Error as e:
         logger.error(f"Error creating database tables: {e}")
         raise
+    except Exception as e:
+        logger.error(f"Unexpected error during database initialization: {e}")
+        raise
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 if __name__ == "__main__":
     # Set up logging

@@ -48,7 +48,7 @@ Create a `.env` file in the backend directory:
 ```env
 FLASK_APP=app.py
 FLASK_ENV=development
-DATABASE_URL=sqlite:///kokoro.db
+DATABASE_URL=sqlite:///database.db
 CHROMA_HOST=localhost
 CHROMA_PORT=8000
 GPU_IDLE_THRESHOLD=10
@@ -79,7 +79,7 @@ The application will be available at:
 |----------|-------------|---------|
 | FLASK_APP | Flask application entry point | app.py |
 | FLASK_ENV | Environment (development/production) | development |
-| DATABASE_URL | SQLite database URL | sqlite:///kokoro.db |
+| DATABASE_URL | SQLite database URL | sqlite:///database.db |
 | CHROMA_HOST | Chroma server host | localhost |
 | CHROMA_PORT | Chroma server port | 8000 |
 | GPU_IDLE_THRESHOLD | GPU utilization threshold (%) | 10 |

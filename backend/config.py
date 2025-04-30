@@ -7,7 +7,7 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev')
     
     # Database
-    DATABASE_PATH = os.getenv('DATABASE_PATH', 'kokoro.db')
+    DATABASE_PATH = os.getenv('DATABASE_PATH', 'database.db')
     
     # Chroma
     CHROMA_PERSIST_DIR = os.getenv('CHROMA_PERSIST_DIR', './chroma_db')
@@ -40,7 +40,7 @@ class ProductionConfig(Config):
     TESTING = False
     # Override these in production environment
     SECRET_KEY = os.getenv('SECRET_KEY')
-    DATABASE_PATH = os.getenv('DATABASE_PATH', '/data/kokoro.db')
+    DATABASE_PATH = os.getenv('DATABASE_PATH', '/data/database.db')
     CHROMA_PERSIST_DIR = os.getenv('CHROMA_PERSIST_DIR', '/data/chroma_db')
 
 # Map environment names to config classes
