@@ -1,8 +1,8 @@
 import React from 'react';
-import { useSelector } from 'react-redux';
+import { useAppSelector } from '../../hooks/redux';
 
-const IndexingIndicator = () => {
-  const { isIndexing, gpuUtil } = useSelector(state => state.gpu);
+const IndexingIndicator: React.FC = () => {
+  const { isIndexing, gpuUtil } = useAppSelector(state => state.gpu);
 
   if (!isIndexing) {
     return null;
@@ -16,4 +16,4 @@ const IndexingIndicator = () => {
   );
 };
 
-export default IndexingIndicator;
+export default IndexingIndicator; 

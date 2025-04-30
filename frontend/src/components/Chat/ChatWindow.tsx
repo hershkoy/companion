@@ -1,13 +1,18 @@
 import React, { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import { fetchMessages } from '../../store/slices/chatSlice';
+import { Message } from '../../types/chat';
 import './ChatWindow.css';
 
-function ChatWindow({ sessionId }) {
-  const dispatch = useDispatch();
-  const { messages, status, error } = useSelector(state => state.chat);
+interface ChatWindowProps {
+  sessionId: string;
+}
+
+const ChatWindow: React.FC<ChatWindowProps> = ({ sessionId }) => {
+  const dispatch = useAppDispatch();
+  const { messages, status, error } = useAppSelector(state => state.chat);
 
   useEffect(() => {
     if (sessionId) {
@@ -50,6 +55,6 @@ function ChatWindow({ sessionId }) {
       <MessageInput sessionId={sessionId} />
     </div>
   );
-}
+};
 
-export default ChatWindow;
+export default ChatWindow; 

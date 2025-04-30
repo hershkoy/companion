@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { sendMessage } from '../../store/slices/chatSlice';
 import ThinkingModeSelector from './ThinkingModeSelector';
 
-const MessageInput = ({ sessionId }) => {
-  const dispatch = useDispatch();
-  const [content, setContent] = useState('');
-  const { thinkingMode } = useSelector(state => state.config);
-  const { status } = useSelector(state => state.chat);
+interface MessageInputProps {
+  sessionId: string;
+}
 
-  const handleSubmit = async e => {
+const MessageInput: React.FC<MessageInputProps> = ({ sessionId }) => {
+  const dispatch = useAppDispatch();
+  const [content, setContent] = useState('');
+  const { thinkingMode } = useAppSelector(state => state.config);
+  const { status } = useAppSelector(state => state.chat);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!content.trim()) return;
 
@@ -33,7 +37,7 @@ const MessageInput = ({ sessionId }) => {
       <div className="input-container">
         <textarea
           value={content}
-          onChange={e => setContent(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setContent(e.target.value)}
           placeholder="Type your message..."
           disabled={status === 'loading'}
         />
@@ -45,4 +49,4 @@ const MessageInput = ({ sessionId }) => {
   );
 };
 
-export default MessageInput;
+export default MessageInput; 

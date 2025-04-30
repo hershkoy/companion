@@ -1,9 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
+import { Message } from '../../types/chat';
 import './MessageList.css';
 
-function MessageList({ messages }) {
-  const messagesEndRef = useRef(null);
+interface MessageListProps {
+  messages: Message[];
+}
+
+const MessageList: React.FC<MessageListProps> = ({ messages }) => {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -27,18 +32,18 @@ function MessageList({ messages }) {
     <div className="message-list">
       {messages.map(message => (
         <div
-          key={message.message_id}
+          key={message.id}
           className={`message ${message.role === 'assistant' ? 'assistant' : 'user'}`}
         >
           <div className="message-content">{message.content}</div>
           <div className="message-timestamp">
-            {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+            {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
           </div>
         </div>
       ))}
       <div ref={messagesEndRef} />
     </div>
   );
-}
+};
 
-export default MessageList;
+export default MessageList; 

@@ -1,36 +1,23 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import axios from 'axios';
+import { getConfig, putConfig } from '../../api/configApi';
+
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
 
 // Async thunks
 export const fetchModels = createAsyncThunk('config/fetchModels', async () => {
-  const response = await fetch('/api/models');
-  if (!response.ok) {
-    throw new Error('Failed to fetch models');
-  }
-  return response.json();
+  const response = await axios.get(`${API_BASE_URL}/models`);
+  return response.data;
 });
 
 export const fetchConfig = createAsyncThunk('config/fetchConfig', async sessionId => {
-  const response = await fetch(`/api/config/${sessionId}`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch config');
-  }
-  return response.json();
+  return await getConfig(sessionId);
 });
 
 export const updateConfig = createAsyncThunk(
   'config/updateConfig',
   async ({ sessionId, config }) => {
-    const response = await fetch(`/api/config/${sessionId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(config),
-    });
-    if (!response.ok) {
-      throw new Error('Failed to update config');
-    }
-    return response.json();
+    return await putConfig(sessionId, config);
   }
 );
 

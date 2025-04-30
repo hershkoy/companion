@@ -1,18 +1,23 @@
 import React from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { updateConfig } from '../../store/slices/configSlice';
 
-const THINKING_MODES = [
+interface ThinkingMode {
+  value: string;
+  label: string;
+}
+
+const THINKING_MODES: ThinkingMode[] = [
   { value: 'cot', label: 'Chain of Thought' },
   { value: 'rag', label: 'Retrieval Augmented' },
   { value: 'hybrid', label: 'Hybrid' },
 ];
 
-const ThinkingModeSelector = () => {
-  const dispatch = useDispatch();
-  const { thinkingMode } = useSelector(state => state.config);
+const ThinkingModeSelector: React.FC = () => {
+  const dispatch = useAppDispatch();
+  const { thinkingMode } = useAppSelector(state => state.config);
 
-  const handleModeChange = e => {
+  const handleModeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     dispatch(updateConfig({ thinking_mode: e.target.value }));
   };
 
@@ -30,4 +35,4 @@ const ThinkingModeSelector = () => {
   );
 };
 
-export default ThinkingModeSelector;
+export default ThinkingModeSelector; 

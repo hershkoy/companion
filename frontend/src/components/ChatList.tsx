@@ -1,7 +1,24 @@
 import React, { useState, useMemo } from 'react';
 import './ChatList.css';
 
-const ChatList = ({
+interface Session {
+  id: string;
+  title: string;
+  created_at: string;
+  latest_message?: string;
+  isActive?: boolean;
+}
+
+interface ChatListProps {
+  sessions: Session[];
+  currentSession: Session | null;
+  onSelectSession: (id: string) => void;
+  onCreateSession: () => void;
+  onDeleteSession: (id: string) => void;
+  onUpdateSessionTitle: (id: string, title: string) => Promise<void>;
+}
+
+const ChatList: React.FC<ChatListProps> = ({
   sessions: chats,
   currentSession: currentChat,
   onSelectSession: onSelectChat,
@@ -9,12 +26,12 @@ const ChatList = ({
   onDeleteSession: onDeleteChat,
   onUpdateSessionTitle: onUpdateChatTitle,
 }) => {
-  const [editingId, setEditingId] = useState(null);
-  const [editTitle, setEditTitle] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState<string>('');
 
   // Group sessions by date
   const groupedSessions = useMemo(() => {
-    const groups = {
+    const groups: Record<string, Session[]> = {
       Today: [],
       Yesterday: [],
       'Previous 7 Days': [],
@@ -48,12 +65,12 @@ const ChatList = ({
     onCreateChat();
   };
 
-  const startEditing = chat => {
+  const startEditing = (chat: Session) => {
     setEditingId(chat.id);
     setEditTitle(chat.title);
   };
 
-  const handleUpdateTitle = async chatId => {
+  const handleUpdateTitle = async (chatId: string) => {
     if (editTitle.trim()) {
       await onUpdateChatTitle(chatId, editTitle.trim());
     }
@@ -61,7 +78,7 @@ const ChatList = ({
     setEditTitle('');
   };
 
-  const handleKeyPress = (e, chatId) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>, chatId: string) => {
     if (e.key === 'Enter') {
       handleUpdateTitle(chatId);
     } else if (e.key === 'Escape') {
@@ -69,7 +86,7 @@ const ChatList = ({
     }
   };
 
-  const formatDate = dateString => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString(undefined, {
       month: 'short',
@@ -78,7 +95,7 @@ const ChatList = ({
     });
   };
 
-  const truncateText = (text, maxLength = 30) => {
+  const truncateText = (text: string, maxLength = 30) => {
     if (!text) return '';
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
   };
@@ -205,4 +222,4 @@ const ChatList = ({
   );
 };
 
-export default ChatList;
+export default ChatList; 
