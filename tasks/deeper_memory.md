@@ -481,9 +481,9 @@ CREATE TABLE session_config (
     - [x] `frontend/src/utils/tokenUtils.js`: estimate token count for CoT prefix  
 
 16. **Integration & Wiring**  
-    - [ ] In `App.js`, set up React Router for `ChatPage` and `ConfigPage`; wrap in Redux `<Provider>`  
-    - [ ] On `ChatPage` load: dispatch `fetchModels()`, `fetchConfig(sessionId)`, `fetchMessages(sessionId)`, start `useGpuStatus` polling  
-    - [ ] Pass `currentModel`, `thinkingMode`, `topK` from Redux into `MessageInput` and API calls  
+    - [x] In `App.js`, set up React Router for `ChatPage` and `ConfigPage`; wrap in Redux `<Provider>`  
+    - [x] On `ChatPage` load: dispatch `fetchModels()`, `fetchConfig(sessionId)`, `fetchMessages(sessionId)`, start `useGpuStatus` polling  
+    - [x] Pass `currentModel`, `thinkingMode`, `topK` from Redux into `MessageInput` and API calls  
 
 17. **Testing**  
     - [ ] Write pytest tests in `backend/tests/` for each route: sessions, messages, config, embeddings  
