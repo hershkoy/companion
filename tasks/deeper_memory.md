@@ -366,13 +366,13 @@ CREATE TABLE session_config (
 # TASKS!!!
 
 1. **Database Schema & Migrations**  
-   - [ ] Create `backend/db/init_db.py` with `create_tables()` that runs the following DDL against SQLite:  
+   - [x] Create `backend/db/init_db.py` with `create_tables()` that runs the following DDL against SQLite:  
      - Sessions table (fields: `session_id TEXT PK`, `title TEXT`, `created_at DATETIME`, `updated_at DATETIME`)  
      - Messages table (fields: `message_id INTEGER PK AUTOINCR`, `session_id TEXT FK`, `role TEXT CHECK('user','assistant')`, `content TEXT`, `created_at DATETIME`)  
      - Documents table (fields: `doc_id TEXT PK`, `source_type TEXT`, `source_path TEXT`, `metadata JSON`, `created_at DATETIME`, `updated_at DATETIME`)  
      - Document_chunks table (fields: `chunk_id TEXT PK`, `doc_id TEXT FK`, `chunk_index INTEGER`, `text TEXT`, `chroma_id TEXT UNIQUE`, `created_at DATETIME`)  
      - Session_config table (fields: `session_id TEXT PK`, `model_name TEXT`, `thinking_mode TEXT CHECK('cot','rag','hybrid')`, `top_k INTEGER`, `embed_light TEXT`, `embed_deep TEXT`, `idle_threshold_s INTEGER`)  
-   - [ ] Add migration stub folder `backend/db/migrations/` for future Alembic scripts.  
+   - [x] Add migration stub folder `backend/db/migrations/` for future Alembic scripts.  
 
 2. **Backend Folder & Module Scaffolding**  
    - [ ] Under `backend/`, create directories: `models/`, `routes/`, `services/`, `tasks/`, `utils/`, `tests/`.  
@@ -425,9 +425,9 @@ CREATE TABLE session_config (
      - `generate_response(session_id: str, user_message: str, thinking_mode: str) -> str`  
        - Embed `user_message` with light embedder  
        - Retrieve `top_k` document chunks via Chroma  
-       - If `cot` or `hybrid`: run 1–3 chain-of-thought iterations by prefixing “Let me think step by step” and feeding back to chat model  
+       - If `cot` or `hybrid`: run 1–3 chain-of-thought iterations by prefixing "Let me think step by step" and feeding back to chat model  
        - Construct final prompt combining retrieved contexts and CoT reasoning, send to chat LLM  
-       - Return assistant’s text response  
+       - Return assistant's text response  
 
 9. **Background Indexing Scheduler**  
    - [ ] `backend/services/scheduler.py`:  
@@ -464,10 +464,10 @@ CREATE TABLE session_config (
 12. **Chat UI Components**  
     - [ ] `frontend/src/components/Chat/ChatWindow.js`: render `MessageList` and `MessageInput`; connect to `chatSlice`  
     - [ ] `frontend/src/components/Chat/MessageList.js`: map over `messages` state, display `role`, `content`, `created_at`  
-    - [ ] `frontend/src/components/Chat/MessageInput.js`: textarea, “Send” button, include `<ThinkingModeSelector>`; on submit dispatch `sendMessage`  
+    - [ ] `frontend/src/components/Chat/MessageInput.js`: textarea, "Send" button, include `<ThinkingModeSelector>`; on submit dispatch `sendMessage`  
     - [ ] `frontend/src/components/Chat/ModelSelector.js`: dropdown bound to `configSlice.currentModel`; on change dispatch `updateConfig`  
     - [ ] `frontend/src/components/Chat/ThinkingModeSelector.js`: dropdown with `cot`, `rag`, `hybrid`; persists via `configSlice`  
-    - [ ] `frontend/src/components/Chat/IndexingIndicator.js`: show spinner and “Indexing in progress…” when `gpuSlice.isIndexing` is true  
+    - [ ] `frontend/src/components/Chat/IndexingIndicator.js`: show spinner and "Indexing in progress..." when `gpuSlice.isIndexing` is true  
 
 13. **Config Panel Components**  
     - [ ] `frontend/src/components/Config/ConfigPanel.js`: fields for `topK`, `embedLight`, `embedDeep`, `idleThreshold` with inputs/sliders; save button calls `updateConfig`  
