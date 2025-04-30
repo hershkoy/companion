@@ -6,7 +6,7 @@ import ChatPage from './pages/ChatPage';
 import ConfigPage from './pages/ConfigPage';
 
 const App = () => {
-    return (
+  return (
         <Provider store={store}>
             <Router>
                 <div className="app">

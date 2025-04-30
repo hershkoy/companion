@@ -491,8 +491,8 @@ CREATE TABLE session_config (
     - [x] Add React Testing Library tests for critical components: `ChatWindow`, `MessageInput`, `ConfigPanel`  
 
 18. **Linting & Formatting**  
-    - [ ] Add `.eslintrc.js` and `.prettierrc` to `frontend/` following Airbnb or similar style  
-    - [ ] Add `flake8` or `black` configs to `backend/`  
+    - [x] Add `.eslintrc.js` and `.prettierrc` to `frontend/` following Airbnb or similar style  
+    - [x] Add `flake8` or `black` configs to `backend/`  
 
 19. **Documentation & README**  
     - [ ] Update root `README.md` with setup instructions for both backend and frontend, environment variables, and how to start indexing  
