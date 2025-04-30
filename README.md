@@ -1,114 +1,150 @@
-# Audio Transcription App
+# Deep Memory Chat Application
 
-A real-time audio transcription application built with React and Python, using OpenAI's Whisper model for speech-to-text conversion.
+A sophisticated chat application with hybrid Chain-of-Thought (CoT) and Retrieval-Augmented Generation (RAG) capabilities, built with Flask and React.
 
 ## Features
 
-- Real-time audio recording from microphone
-- Server-side transcription using Whisper
-- Modern React frontend interface
-- Flask backend API
-- GPU acceleration support
+- Dynamic LLM model selection via Ollama integration
+- Multiple thinking modes: Chain-of-Thought, RAG, and Hybrid
+- Intelligent background document indexing
+- Dual embedder strategy (light/deep) for optimal performance
+- Real-time GPU utilization monitoring
+- Configurable retrieval parameters
+- Modern React frontend with Redux state management
 
-## Prerequisites
+## System Requirements
 
-- Python 3.8 or higher
-- Node.js 14 or higher
-- CUDA-compatible GPU (recommended)
-- ollama running locally
+- Python 3.8+
+- Node.js 16+
+- NVIDIA GPU (recommended)
+- SQLite 3
+- Ollama
 
-## Installation
+## Quick Start
 
-### Backend Setup
-
-1. Create and activate a Python virtual environment:
+1. Clone the repository:
 ```bash
+git clone <repository-url>
+cd kokoro
+```
+
+2. Set up the backend:
+```bash
+cd backend
 python -m venv venv
-# On Windows
-venv\Scripts\activate
-# On Unix or MacOS
-source venv/bin/activate
+source venv/bin/activate  # On Windows: .\venv\Scripts\activate
+pip install -r requirements.txt
+python db/init_db.py  # Initialize database
+flask run
 ```
 
-2. Install Python dependencies:
-```bash
-pip install flask flask-cors faster-whisper torch
-```
-
-### Frontend Setup
-
-1. Navigate to the frontend directory:
+3. Set up the frontend:
 ```bash
 cd frontend
-```
-
-2. Install Node.js dependencies:
-```bash
 npm install
-```
-
-## Running the Application
-
-### Start the Backend Server
-
-1. Make sure your virtual environment is activated
-2. From the root directory, run:
-```bash
-python app.py
-```
-The Flask server will start on `http://localhost:5000`
-
-### Start the Frontend Development Server
-
-1. In a new terminal, navigate to the frontend directory:
-```bash
-cd frontend
-```
-
-2. Start the React development server:
-```bash
 npm start
 ```
-The frontend will be available at `http://localhost:3000`
 
-## Usage
+4. Configure environment variables:
+Create a `.env` file in the backend directory:
+```env
+FLASK_APP=app.py
+FLASK_ENV=development
+DATABASE_URL=sqlite:///kokoro.db
+CHROMA_PERSIST_DIR=./chroma_db
+GPU_IDLE_THRESHOLD=10
+IDLE_THRESHOLD_SECONDS=600
+OLLAMA_BASE_URL=http://localhost:11434
+```
 
-1. Open `http://localhost:3000` in your web browser
-2. Click the "Start Recording" button to begin recording audio
-3. Speak into your microphone
-4. Click "Stop Recording" when finished
-5. The transcribed text will appear on the screen
+## Environment Variables
 
-## Troubleshooting
+| Variable | Description | Default |
+|----------|-------------|---------|
+| FLASK_APP | Flask application entry point | app.py |
+| FLASK_ENV | Environment (development/production) | development |
+| DATABASE_URL | SQLite database URL | sqlite:///kokoro.db |
+| CHROMA_PERSIST_DIR | Chroma vector store directory | ./chroma_db |
+| GPU_IDLE_THRESHOLD | GPU utilization threshold (%) | 10 |
+| IDLE_THRESHOLD_SECONDS | Idle time before background indexing | 600 |
+| OLLAMA_BASE_URL | Ollama API endpoint | http://localhost:11434 |
 
-### Common Issues
+## Architecture
 
-1. **Backend Connection Error**
-   - Ensure the Flask server is running on port 5000
-   - Check if CORS is properly configured
-   - Verify network connectivity
+### Backend Components
 
-2. **Audio Recording Issues**
-   - Grant microphone permissions in your browser
-   - Check if your microphone is properly connected
-   - Verify browser compatibility (Chrome recommended)
+- **Flask Application**: RESTful API with Blueprint organization
+- **SQLite Database**: Stores sessions, messages, documents, and configuration
+- **Chroma Vector Store**: Manages document embeddings for retrieval
+- **Background Services**:
+  - GPU Monitor: Tracks GPU utilization
+  - Model Manager: Handles LLM loading/unloading
+  - Indexing Scheduler: Manages background document processing
 
-3. **Transcription Issues**
-   - Ensure Whisper model is properly loaded
-   - Check GPU availability and CUDA setup
-   - Verify audio file format and quality
+### Frontend Components
 
-npx @agentdeskai/browser-tools-server
+- **React + Redux**: State management and UI components
+- **Real-time Updates**: GPU status and indexing progress
+- **Configurable Interface**: Model selection and thinking mode controls
 
+## API Endpoints
 
-## License
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/sessions | List all sessions |
+| POST | /api/sessions | Create new session |
+| GET | /api/sessions/{id}/messages | Get session messages |
+| POST | /api/sessions/{id}/messages | Send message |
+| GET | /api/config/{session_id} | Get session config |
+| PUT | /api/config/{session_id} | Update session config |
+| GET | /api/embeddings/status | Check indexing status |
 
-MIT License
+## Development
+
+### Code Style
+
+Backend:
+- Black formatter (line length: 100)
+- Flake8 linter
+- isort for import sorting
+
+Frontend:
+- ESLint (Airbnb style)
+- Prettier formatter
+
+### Running Tests
+
+Backend:
+```bash
+cd backend
+pytest
+```
+
+Frontend:
+```bash
+cd frontend
+npm test
+```
+
+### Background Indexing
+
+The system automatically starts document indexing when:
+1. GPU utilization is below threshold (default: 10%)
+2. No user activity for configured duration (default: 10 minutes)
+
+To manually trigger indexing:
+```bash
+curl -X POST http://localhost:5000/api/embeddings/index
+```
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+[MIT License](LICENSE)
