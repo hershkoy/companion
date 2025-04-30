@@ -49,7 +49,7 @@ const chatSlice = createSlice({
   name: 'chat',
   initialState,
   reducers: {
-    clearMessages: (state) => {
+    clearMessages: state => {
       state.messages = [];
       state.status = 'idle';
       state.error = null;
@@ -58,9 +58,9 @@ const chatSlice = createSlice({
       state.currentSessionId = action.payload;
     },
   },
-  extraReducers: (builder) => {
+  extraReducers: builder => {
     builder
-      .addCase(fetchMessages.pending, (state) => {
+      .addCase(fetchMessages.pending, state => {
         state.status = 'loading';
       })
       .addCase(fetchMessages.fulfilled, (state, action) => {
@@ -71,7 +71,7 @@ const chatSlice = createSlice({
         state.status = 'failed';
         state.error = action.error.message || 'Failed to fetch messages';
       })
-      .addCase(sendMessage.pending, (state) => {
+      .addCase(sendMessage.pending, state => {
         state.status = 'loading';
       })
       .addCase(sendMessage.fulfilled, (state, action) => {
@@ -86,4 +86,4 @@ const chatSlice = createSlice({
 });
 
 export const { clearMessages, setCurrentSession } = chatSlice.actions;
-export default chatSlice.reducer; 
+export default chatSlice.reducer;

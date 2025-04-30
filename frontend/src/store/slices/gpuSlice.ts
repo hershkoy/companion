@@ -20,15 +20,18 @@ export const pollGpuStatus = createAsyncThunk<GPUStatusResponse>('gpu/pollStatus
   return response.json();
 });
 
-export const triggerIndexing = createAsyncThunk<IndexingResponse>('gpu/triggerIndexing', async () => {
-  const response = await fetch('/api/embeddings/index', {
-    method: 'POST',
-  });
-  if (!response.ok) {
-    throw new Error('Failed to trigger indexing');
+export const triggerIndexing = createAsyncThunk<IndexingResponse>(
+  'gpu/triggerIndexing',
+  async () => {
+    const response = await fetch('/api/embeddings/index', {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to trigger indexing');
+    }
+    return response.json();
   }
-  return response.json();
-});
+);
 
 const initialState: GPUState = {
   isAvailable: false,
@@ -43,14 +46,14 @@ const gpuSlice = createSlice({
   name: 'gpu',
   initialState,
   reducers: {
-    resetError: (state) => {
+    resetError: state => {
       state.error = null;
     },
   },
-  extraReducers: (builder) => {
+  extraReducers: builder => {
     builder
       // Poll status cases
-      .addCase(pollGpuStatus.pending, (state) => {
+      .addCase(pollGpuStatus.pending, state => {
         state.status = 'loading';
       })
       .addCase(pollGpuStatus.fulfilled, (state, action: PayloadAction<GPUStatusResponse>) => {
@@ -64,10 +67,10 @@ const gpuSlice = createSlice({
         state.error = action.error.message || 'An error occurred';
       })
       // Trigger indexing cases
-      .addCase(triggerIndexing.pending, (state) => {
+      .addCase(triggerIndexing.pending, state => {
         state.status = 'loading';
       })
-      .addCase(triggerIndexing.fulfilled, (state) => {
+      .addCase(triggerIndexing.fulfilled, state => {
         state.status = 'succeeded';
         state.isIndexing = true;
         state.lastIndexingStart = new Date().toISOString();
@@ -81,4 +84,4 @@ const gpuSlice = createSlice({
 });
 
 export const { resetError } = gpuSlice.actions;
-export default gpuSlice.reducer; 
+export default gpuSlice.reducer;

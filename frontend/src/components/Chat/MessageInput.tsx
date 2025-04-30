@@ -49,4 +49,4 @@ const MessageInput: React.FC<MessageInputProps> = ({ sessionId }) => {
   );
 };
 
-export default MessageInput; 
+export default MessageInput;

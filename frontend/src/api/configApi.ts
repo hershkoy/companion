@@ -21,4 +21,4 @@ export const putConfig = async (sessionId: string, config: ModelConfig): Promise
     console.error('Error updating config:', error);
     throw error;
   }
-}; 
+};

@@ -48,4 +48,4 @@ export const triggerIndexing = async (): Promise<IndexingResponse> => {
     console.error('Error triggering indexing:', error);
     throw error;
   }
-}; 
+};

@@ -18,4 +18,4 @@ export const formatShortDate = (isoString: string): string => {
 export const formatTime = (isoString: string): string => {
   const date = new Date(isoString);
   return format(date, 'HH:mm:ss');
-}; 
+};

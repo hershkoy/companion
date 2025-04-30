@@ -36,4 +36,4 @@ export const PROMPT_TOKEN_ESTIMATES: PromptTokenEstimates = {
   COT_PREFIX: 10, // "Let me think step by step..."
   RAG_CONTEXT: 50, // Average size of retrieved context
   SYSTEM_PREFIX: 100, // System instructions
-}; 
+};

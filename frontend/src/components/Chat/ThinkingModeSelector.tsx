@@ -35,4 +35,4 @@ const ThinkingModeSelector: React.FC = () => {
   );
 };
 
-export default ThinkingModeSelector; 
+export default ThinkingModeSelector;

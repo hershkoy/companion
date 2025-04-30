@@ -100,4 +100,4 @@ class WebSocketManager {
 // Create a singleton instance
 const wsManager = new WebSocketManager();
 
-export default wsManager; 
+export default wsManager;

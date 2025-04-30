@@ -16,4 +16,4 @@ const IndexingIndicator: React.FC = () => {
   );
 };
 
-export default IndexingIndicator; 
+export default IndexingIndicator;

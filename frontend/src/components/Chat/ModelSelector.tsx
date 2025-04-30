@@ -29,4 +29,4 @@ const ModelSelector: React.FC = () => {
   );
 };
 
-export default ModelSelector; 
+export default ModelSelector;

@@ -14,16 +14,13 @@ const initialState: ConfigState = {
   error: null,
 };
 
-export const fetchModels = createAsyncThunk<ModelConfig[]>(
-  'config/fetchModels',
-  async () => {
-    const response = await fetch('/api/models');
-    if (!response.ok) {
-      throw new Error('Failed to fetch models');
-    }
-    return response.json();
+export const fetchModels = createAsyncThunk<ModelConfig[]>('config/fetchModels', async () => {
+  const response = await fetch('/api/models');
+  if (!response.ok) {
+    throw new Error('Failed to fetch models');
   }
-);
+  return response.json();
+});
 
 interface UpdateConfigPayload {
   model_name?: string;
@@ -39,14 +36,8 @@ const configSlice = createSlice({
   initialState,
   reducers: {
     updateConfig: (state, action: PayloadAction<UpdateConfigPayload>) => {
-      const {
-        model_name,
-        thinking_mode,
-        top_k,
-        embed_light,
-        embed_deep,
-        idle_threshold,
-      } = action.payload;
+      const { model_name, thinking_mode, top_k, embed_light, embed_deep, idle_threshold } =
+        action.payload;
 
       if (model_name) state.currentModel = model_name;
       if (thinking_mode) state.thinkingMode = thinking_mode;
@@ -56,9 +47,9 @@ const configSlice = createSlice({
       if (idle_threshold) state.idleThreshold = idle_threshold;
     },
   },
-  extraReducers: (builder) => {
+  extraReducers: builder => {
     builder
-      .addCase(fetchModels.pending, (state) => {
+      .addCase(fetchModels.pending, state => {
         state.status = 'loading';
       })
       .addCase(fetchModels.fulfilled, (state, action) => {
@@ -76,4 +67,4 @@ const configSlice = createSlice({
 });
 
 export const { updateConfig } = configSlice.actions;
-export default configSlice.reducer; 
+export default configSlice.reducer;

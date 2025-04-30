@@ -42,4 +42,4 @@ export type AppThunk<ReturnType = void> = ThunkAction<
   Action<string>
 >;
 
-export type AppDispatch = ThunkDispatch<RootState, unknown, Action<string>>; 
+export type AppDispatch = ThunkDispatch<RootState, unknown, Action<string>>;

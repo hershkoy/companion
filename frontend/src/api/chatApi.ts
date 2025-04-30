@@ -32,4 +32,4 @@ export const postMessage = async (
     console.error('Error posting message:', error);
     throw error;
   }
-}; 
+};

@@ -23,4 +23,4 @@ export interface ThinkingMode {
   id: string;
   name: string;
   description: string;
-} 
+}

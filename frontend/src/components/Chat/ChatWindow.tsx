@@ -57,4 +57,4 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ sessionId }) => {
   );
 };
 
-export default ChatWindow; 
+export default ChatWindow;
