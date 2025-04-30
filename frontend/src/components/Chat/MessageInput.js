@@ -6,19 +6,21 @@ import ThinkingModeSelector from './ThinkingModeSelector';
 const MessageInput = ({ sessionId }) => {
   const dispatch = useDispatch();
   const [content, setContent] = useState('');
-  const { thinkingMode } = useSelector((state) => state.config);
-  const { status } = useSelector((state) => state.chat);
+  const { thinkingMode } = useSelector(state => state.config);
+  const { status } = useSelector(state => state.chat);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
     if (!content.trim()) return;
 
     try {
-      await dispatch(sendMessage({
-        sessionId,
-        content: content.trim(),
-        thinkingMode
-      })).unwrap();
+      await dispatch(
+        sendMessage({
+          sessionId,
+          content: content.trim(),
+          thinkingMode,
+        })
+      ).unwrap();
       setContent('');
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -31,14 +33,11 @@ const MessageInput = ({ sessionId }) => {
       <div className="input-container">
         <textarea
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={e => setContent(e.target.value)}
           placeholder="Type your message..."
           disabled={status === 'loading'}
         />
-        <button
-          type="submit"
-          disabled={status === 'loading' || !content.trim()}
-        >
+        <button type="submit" disabled={status === 'loading' || !content.trim()}>
           Send
         </button>
       </div>
@@ -46,4 +45,4 @@ const MessageInput = ({ sessionId }) => {
   );
 };
 
-export default MessageInput; 
+export default MessageInput;

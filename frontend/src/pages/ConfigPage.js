@@ -13,4 +13,4 @@ const ConfigPage = () => {
   );
 };
 
-export default ConfigPage; 
+export default ConfigPage;

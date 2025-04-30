@@ -4,7 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 const MessageList = ({ messages }) => {
   return (
     <div className="message-list">
-      {messages.map((message) => (
+      {messages.map(message => (
         <div
           key={message.message_id}
           className={`message ${message.role === 'assistant' ? 'assistant' : 'user'}`}
@@ -19,4 +19,4 @@ const MessageList = ({ messages }) => {
   );
 };
 
-export default MessageList; 
+export default MessageList;

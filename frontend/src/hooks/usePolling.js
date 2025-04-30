@@ -20,4 +20,4 @@ const usePolling = (callback, interval = 1000, enabled = true) => {
   }, [interval, enabled]);
 };
 
-export default usePolling; 
+export default usePolling;

@@ -30,4 +30,4 @@ export const triggerIndexing = async () => {
     console.error('Error triggering indexing:', error);
     throw error;
   }
-}; 
+};

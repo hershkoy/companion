@@ -14,5 +14,3 @@ const useGpuStatus = (enabled = true) => {
 };
 
 export default useGpuStatus;
-
- 

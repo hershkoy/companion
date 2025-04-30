@@ -6,7 +6,7 @@ import { fetchMessages } from '../../store/slices/chatSlice';
 
 const ChatWindow = ({ sessionId }) => {
   const dispatch = useDispatch();
-  const { messages, status, error } = useSelector((state) => state.chat);
+  const { messages, status, error } = useSelector(state => state.chat);
 
   useEffect(() => {
     if (sessionId) {
@@ -30,4 +30,4 @@ const ChatWindow = ({ sessionId }) => {
   );
 };
 
-export default ChatWindow; 
+export default ChatWindow;

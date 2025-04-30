@@ -15,11 +15,16 @@ describe('ChatWindow', () => {
       chat: {
         messages: [
           { message_id: 1, role: 'user', content: 'Hello', created_at: new Date().toISOString() },
-          { message_id: 2, role: 'assistant', content: 'Hi there!', created_at: new Date().toISOString() }
+          {
+            message_id: 2,
+            role: 'assistant',
+            content: 'Hi there!',
+            created_at: new Date().toISOString(),
+          },
         ],
         status: 'idle',
-        error: null
-      }
+        error: null,
+      },
     });
   });
 
@@ -40,8 +45,8 @@ describe('ChatWindow', () => {
       chat: {
         messages: [],
         status: 'loading',
-        error: null
-      }
+        error: null,
+      },
     });
 
     render(
@@ -58,8 +63,8 @@ describe('ChatWindow', () => {
       chat: {
         messages: [],
         status: 'error',
-        error: 'Failed to load messages'
-      }
+        error: 'Failed to load messages',
+      },
     });
 
     render(
@@ -70,4 +75,4 @@ describe('ChatWindow', () => {
 
     expect(screen.getByText('Error: Failed to load messages')).toBeInTheDocument();
   });
-}); 
+});

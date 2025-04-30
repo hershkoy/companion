@@ -4,13 +4,13 @@ import { updateConfig } from '../../store/slices/configSlice';
 
 const ConfigPanel = ({ sessionId }) => {
   const dispatch = useDispatch();
-  const config = useSelector((state) => state.config);
-  
+  const config = useSelector(state => state.config);
+
   const [formValues, setFormValues] = useState({
     topK: config.topK,
     embedLight: config.embedLight,
     embedDeep: config.embedDeep,
-    idleThreshold: config.idleThreshold
+    idleThreshold: config.idleThreshold,
   });
 
   useEffect(() => {
@@ -18,24 +18,26 @@ const ConfigPanel = ({ sessionId }) => {
       topK: config.topK,
       embedLight: config.embedLight,
       embedDeep: config.embedDeep,
-      idleThreshold: config.idleThreshold
+      idleThreshold: config.idleThreshold,
     });
   }, [config]);
 
-  const handleChange = (e) => {
+  const handleChange = e => {
     const { name, value } = e.target;
-    setFormValues((prev) => ({
+    setFormValues(prev => ({
       ...prev,
-      [name]: name === 'topK' || name === 'idleThreshold' ? parseInt(value, 10) : value
+      [name]: name === 'topK' || name === 'idleThreshold' ? parseInt(value, 10) : value,
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = e => {
     e.preventDefault();
-    dispatch(updateConfig({
-      sessionId,
-      ...formValues
-    }));
+    dispatch(
+      updateConfig({
+        sessionId,
+        ...formValues,
+      })
+    );
   };
 
   return (
@@ -95,4 +97,4 @@ const ConfigPanel = ({ sessionId }) => {
   );
 };
 
-export default ConfigPanel; 
+export default ConfigPanel;

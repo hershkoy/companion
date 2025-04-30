@@ -16,8 +16,8 @@ describe('ConfigPanel', () => {
         topK: 5,
         embedLight: 'all-MiniLM-L6-v2',
         embedDeep: 'sentence-7b',
-        idleThreshold: 600
-      }
+        idleThreshold: 600,
+      },
     });
     store.dispatch = jest.fn();
   });
@@ -77,7 +77,7 @@ describe('ConfigPanel', () => {
     await waitFor(() => {
       expect(store.dispatch).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: 'config/updateConfig/pending'
+          type: 'config/updateConfig/pending',
         })
       );
     });
@@ -98,4 +98,4 @@ describe('ConfigPanel', () => {
     expect(idleThresholdInput).toHaveAttribute('min', '60');
     expect(idleThresholdInput).toHaveAttribute('max', '3600');
   });
-}); 
+});

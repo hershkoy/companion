@@ -13,11 +13,11 @@ describe('MessageInput', () => {
   beforeEach(() => {
     store = mockStore({
       chat: {
-        status: 'idle'
+        status: 'idle',
       },
       config: {
-        thinkingMode: 'hybrid'
-      }
+        thinkingMode: 'hybrid',
+      },
     });
     store.dispatch = jest.fn();
   });
@@ -36,11 +36,11 @@ describe('MessageInput', () => {
   it('disables input and button while loading', () => {
     store = mockStore({
       chat: {
-        status: 'loading'
+        status: 'loading',
       },
       config: {
-        thinkingMode: 'hybrid'
-      }
+        thinkingMode: 'hybrid',
+      },
     });
 
     render(
@@ -69,7 +69,7 @@ describe('MessageInput', () => {
     await waitFor(() => {
       expect(store.dispatch).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: 'chat/sendMessage/pending'
+          type: 'chat/sendMessage/pending',
         })
       );
     });
@@ -92,4 +92,4 @@ describe('MessageInput', () => {
       expect(input.value).toBe('');
     });
   });
-}); 
+});

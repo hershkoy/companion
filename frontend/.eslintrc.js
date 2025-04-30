@@ -6,7 +6,6 @@ module.exports = {
   },
   extends: [
     'airbnb',
-    'airbnb/hooks',
     'plugin:react/recommended',
     'plugin:prettier/recommended',
   ],
@@ -14,22 +13,31 @@ module.exports = {
     ecmaFeatures: {
       jsx: true,
     },
-    ecmaVersion: 12,
+    ecmaVersion: 'latest',
     sourceType: 'module',
   },
   plugins: ['react', 'prettier'],
   rules: {
-    'react/prop-types': 'off', // Since we're using TypeScript
+    'react/prop-types': 'off',
+    'react/react-in-jsx-scope': 'off',
     'react/jsx-filename-extension': [1, { extensions: ['.js', '.jsx'] }],
     'import/prefer-default-export': 'off',
     'no-param-reassign': ['error', { props: false }],
-    'prettier/prettier': ['error', {}, { usePrettierrc: true }],
+    'prettier/prettier': ['error', {
+      singleQuote: true,
+      trailingComma: 'es5',
+      printWidth: 100,
+      tabWidth: 2,
+    }],
   },
   settings: {
     'import/resolver': {
       node: {
         paths: ['src'],
       },
+    },
+    react: {
+      version: 'detect',
     },
   },
 }; 

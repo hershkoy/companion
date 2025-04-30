@@ -20,7 +20,7 @@ class WebSocketManager {
     logger.info('[WebSocket] Attempting connection');
 
     const ws = new WebSocket(WS_URL);
-    
+
     ws.onopen = () => {
       logger.info('[WebSocket] Connection established');
       this.isConnecting = false;
@@ -31,7 +31,7 @@ class WebSocketManager {
       logger.info('[WebSocket] Connection closed');
       this.ws = null;
       this.notifyListeners('disconnected');
-      
+
       // Attempt reconnection
       if (!this.reconnectTimeout) {
         this.reconnectTimeout = setTimeout(() => {
@@ -42,7 +42,7 @@ class WebSocketManager {
       }
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = event => {
       try {
         const data = JSON.parse(event.data);
         logger.debug('[WebSocket] Received message:', data);
@@ -52,7 +52,7 @@ class WebSocketManager {
       }
     };
 
-    ws.onerror = (error) => {
+    ws.onerror = error => {
       logger.error('[WebSocket] Connection error:', error);
       this.isConnecting = false;
     };
@@ -92,4 +92,4 @@ class WebSocketManager {
 // Create a singleton instance
 const wsManager = new WebSocketManager();
 
-export default wsManager; 
+export default wsManager;

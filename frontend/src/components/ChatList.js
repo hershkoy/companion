@@ -7,7 +7,7 @@ const ChatList = ({
   onSelectSession: onSelectChat,
   onCreateSession: onCreateChat,
   onDeleteSession: onDeleteChat,
-  onUpdateSessionTitle: onUpdateChatTitle
+  onUpdateSessionTitle: onUpdateChatTitle,
 }) => {
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
@@ -15,10 +15,10 @@ const ChatList = ({
   // Group sessions by date
   const groupedSessions = useMemo(() => {
     const groups = {
-      'Today': [],
-      'Yesterday': [],
+      Today: [],
+      Yesterday: [],
       'Previous 7 Days': [],
-      'Older': []
+      Older: [],
     };
 
     const now = new Date();
@@ -29,7 +29,7 @@ const ChatList = ({
 
     chats.forEach(chat => {
       const chatDate = new Date(chat.created_at);
-      
+
       if (chatDate.toDateString() === now.toDateString()) {
         groups['Today'].push(chat);
       } else if (chatDate.toDateString() === yesterday.toDateString()) {
@@ -48,12 +48,12 @@ const ChatList = ({
     onCreateChat();
   };
 
-  const startEditing = (chat) => {
+  const startEditing = chat => {
     setEditingId(chat.id);
     setEditTitle(chat.title);
   };
 
-  const handleUpdateTitle = async (chatId) => {
+  const handleUpdateTitle = async chatId => {
     if (editTitle.trim()) {
       await onUpdateChatTitle(chatId, editTitle.trim());
     }
@@ -69,12 +69,12 @@ const ChatList = ({
     }
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = dateString => {
     const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, { 
-      month: 'short', 
+    return date.toLocaleDateString(undefined, {
+      month: 'short',
       day: 'numeric',
-      year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+      year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
     });
   };
 
@@ -88,7 +88,16 @@ const ChatList = ({
       <div className="chat-list-header">
         <h2>Chat Sessions</h2>
         <button className="new-chat-button" onClick={handleCreateSession}>
-          <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="1em" width="1em">
+          <svg
+            stroke="currentColor"
+            fill="none"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            height="1em"
+            width="1em"
+          >
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
@@ -96,75 +105,104 @@ const ChatList = ({
         </button>
       </div>
       <div className="sessions-list">
-        {Object.entries(groupedSessions).map(([dateGroup, groupSessions]) => (
-          groupSessions.length > 0 && (
-            <div key={dateGroup}>
-              <div className="date-separator">{dateGroup}</div>
-              {groupSessions.map((chat) => (
-                <div
-                  key={chat.id}
-                  className={`session-item ${chat.id === currentChat?.id || chat.isActive ? 'active' : ''}`}
-                  onClick={() => onSelectChat(chat.id)}
-                >
-                  <div className="session-content">
-                    {editingId === chat.id ? (
-                      <input
-                        type="text"
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                        onBlur={() => handleUpdateTitle(chat.id)}
-                        onKeyDown={(e) => handleKeyPress(e, chat.id)}
-                        autoFocus
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    ) : (
-                      <div className="session-info">
-                        <span className="session-title">
-                          <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="1em" width="1em" style={{marginRight: '0.5rem'}}>
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        {Object.entries(groupedSessions).map(
+          ([dateGroup, groupSessions]) =>
+            groupSessions.length > 0 && (
+              <div key={dateGroup}>
+                <div className="date-separator">{dateGroup}</div>
+                {groupSessions.map(chat => (
+                  <div
+                    key={chat.id}
+                    className={`session-item ${chat.id === currentChat?.id || chat.isActive ? 'active' : ''}`}
+                    onClick={() => onSelectChat(chat.id)}
+                  >
+                    <div className="session-content">
+                      {editingId === chat.id ? (
+                        <input
+                          type="text"
+                          value={editTitle}
+                          onChange={e => setEditTitle(e.target.value)}
+                          onBlur={() => handleUpdateTitle(chat.id)}
+                          onKeyDown={e => handleKeyPress(e, chat.id)}
+                          autoFocus
+                          onClick={e => e.stopPropagation()}
+                        />
+                      ) : (
+                        <div className="session-info">
+                          <span className="session-title">
+                            <svg
+                              stroke="currentColor"
+                              fill="none"
+                              strokeWidth="2"
+                              viewBox="0 0 24 24"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              height="1em"
+                              width="1em"
+                              style={{ marginRight: '0.5rem' }}
+                            >
+                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            {chat.title || 'Untitled Chat'}
+                          </span>
+                          {chat.latest_message && (
+                            <div className="session-preview">{chat.latest_message}</div>
+                          )}
+                        </div>
+                      )}
+                      <div className="session-actions">
+                        <button
+                          className="edit-button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            startEditing(chat);
+                          }}
+                        >
+                          <svg
+                            stroke="currentColor"
+                            fill="none"
+                            strokeWidth="2"
+                            viewBox="0 0 24 24"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            height="1em"
+                            width="1em"
+                          >
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                           </svg>
-                          {chat.title || 'Untitled Chat'}
-                        </span>
-                        {chat.latest_message && (
-                          <div className="session-preview">{chat.latest_message}</div>
-                        )}
+                        </button>
+                        <button
+                          className="delete-button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            onDeleteChat(chat.id);
+                          }}
+                        >
+                          <svg
+                            stroke="currentColor"
+                            fill="none"
+                            strokeWidth="2"
+                            viewBox="0 0 24 24"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            height="1em"
+                            width="1em"
+                          >
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          </svg>
+                        </button>
                       </div>
-                    )}
-                    <div className="session-actions">
-                      <button
-                        className="edit-button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startEditing(chat);
-                        }}
-                      >
-                        <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="1em" width="1em">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                      </button>
-                      <button
-                        className="delete-button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteChat(chat.id);
-                        }}
-                      >
-                        <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="1em" width="1em">
-                          <polyline points="3 6 5 6 21 6"></polyline>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
-                      </button>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )
-        ))}
+                ))}
+              </div>
+            )
+        )}
       </div>
     </div>
   );
 };
 
-export default ChatList; 
+export default ChatList;
