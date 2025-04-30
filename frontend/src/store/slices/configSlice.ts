@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { ConfigState } from '../../types/store';
 import { ModelConfig } from '../../types/chat';
+import { apiClient } from '../../api/config';
 
 const initialState: ConfigState = {
   modelList: [],
@@ -15,21 +16,25 @@ const initialState: ConfigState = {
 };
 
 export const fetchModels = createAsyncThunk<ModelConfig[]>('config/fetchModels', async () => {
-  const response = await fetch('/api/models');
-  if (!response.ok) {
-    throw new Error('Failed to fetch models');
+  try {
+    const response = await apiClient.get<ModelConfig[]>('/models');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching models:', error);
+    throw error;
   }
-  return response.json();
 });
 
 export const fetchConfig = createAsyncThunk<ConfigState, string>(
   'config/fetchConfig',
   async (sessionId: string) => {
-    const response = await fetch(`/api/sessions/${sessionId}/config`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch config');
+    try {
+      const response = await apiClient.get<ConfigState>(`/sessions/${sessionId}/config`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching config:', error);
+      throw error;
     }
-    return response.json();
   }
 );
 

@@ -1,7 +1,5 @@
-import axios from 'axios';
+import { apiClient } from './config';
 import { Message } from '../types/chat';
-
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
 
 interface PostMessageRequest {
   content: string;
@@ -10,7 +8,7 @@ interface PostMessageRequest {
 
 export const getMessages = async (sessionId: string): Promise<Message[]> => {
   try {
-    const response = await axios.get<Message[]>(`${API_BASE_URL}/sessions/${sessionId}/messages`);
+    const response = await apiClient.get<Message[]>(`/sessions/${sessionId}/messages`);
     return response.data;
   } catch (error) {
     console.error('Error fetching messages:', error);
@@ -23,7 +21,7 @@ export const postMessage = async (
   { content, thinking_mode }: PostMessageRequest
 ): Promise<Message> => {
   try {
-    const response = await axios.post<Message>(`${API_BASE_URL}/sessions/${sessionId}/messages`, {
+    const response = await apiClient.post<Message>(`/sessions/${sessionId}/messages`, {
       content,
       thinking_mode,
     });

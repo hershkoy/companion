@@ -13,7 +13,7 @@ interface IndexingResponse {
 
 // Async thunks
 export const pollGpuStatus = createAsyncThunk<GPUStatusResponse>('gpu/pollStatus', async () => {
-  const response = await fetch('/api/embeddings/status');
+  const response = await fetch('/backend/api/embeddings/status');
   if (!response.ok) {
     throw new Error('Failed to fetch GPU status');
   }
@@ -23,7 +23,7 @@ export const pollGpuStatus = createAsyncThunk<GPUStatusResponse>('gpu/pollStatus
 export const triggerIndexing = createAsyncThunk<IndexingResponse>(
   'gpu/triggerIndexing',
   async () => {
-    const response = await fetch('/api/embeddings/index', {
+    const response = await fetch('/backend/api/embeddings/index', {
       method: 'POST',
     });
     if (!response.ok) {

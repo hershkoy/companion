@@ -3,9 +3,10 @@ from flask import Blueprint, jsonify, request
 from ..models.message import Message
 from ..models.session_config import SessionConfig
 
-bp = Blueprint('messages', __name__)
+# Add url_prefix to match other routes
+bp = Blueprint('messages', __name__, url_prefix='/api')
 
-@bp.route('/api/sessions/<session_id>/messages', methods=['GET'])
+@bp.route('/sessions/<session_id>/messages', methods=['GET'])
 def get_messages(session_id: str):
     """Fetch messages for a session."""
     # TODO: Implement database query
@@ -28,7 +29,7 @@ def get_messages(session_id: str):
     ]
     return jsonify([msg.model_dump() for msg in messages])
 
-@bp.route('/api/sessions/<session_id>/messages', methods=['POST'])
+@bp.route('/sessions/<session_id>/messages', methods=['POST'])
 def send_message(session_id: str):
     """Send a new message and get AI response."""
     data = request.get_json()
@@ -67,7 +68,4 @@ def send_message(session_id: str):
     
     # TODO: Save assistant message to database
     
-    return jsonify({
-        'user_message': user_msg.model_dump(),
-        'assistant_message': assistant_msg.model_dump()
-    }) 
+    return jsonify(assistant_msg.model_dump()) 

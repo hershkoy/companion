@@ -1,9 +1,30 @@
 from flask import Blueprint, jsonify, request
 from ..models.session_config import SessionConfig
 
-bp = Blueprint('config', __name__, url_prefix='/api/config')
+bp = Blueprint('config', __name__, url_prefix='/api')
 
-@bp.route('/<session_id>', methods=['GET'])
+@bp.route('/models', methods=['GET'])
+def get_models():
+    """Get list of available models."""
+    # TODO: Implement dynamic model discovery
+    # For now, return mock data
+    models = [
+        {
+            "id": "llama-2-13b",
+            "name": "Llama 2 13B",
+            "description": "Meta's Llama 2 13B parameter model",
+            "type": "chat"
+        },
+        {
+            "id": "llama-2-70b",
+            "name": "Llama 2 70B",
+            "description": "Meta's Llama 2 70B parameter model",
+            "type": "chat"
+        }
+    ]
+    return jsonify(models)
+
+@bp.route('/sessions/<session_id>/config', methods=['GET'])
 def get_config(session_id: str):
     """Get configuration for a session."""
     # TODO: Implement database query
@@ -14,7 +35,7 @@ def get_config(session_id: str):
     )
     return jsonify(config.model_dump())
 
-@bp.route('/<session_id>', methods=['PUT'])
+@bp.route('/sessions/<session_id>/config', methods=['PUT'])
 def update_config(session_id: str):
     """Update configuration for a session."""
     data = request.get_json()

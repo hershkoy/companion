@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { ModelConfig } from '../types/chat';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/backend/api';
 
 export const getConfig = async (sessionId: string): Promise<ModelConfig> => {
   try {

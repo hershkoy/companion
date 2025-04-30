@@ -25,6 +25,11 @@ from services.websocket_service import WebSocketService
 from services.audio_service import AudioService
 from services.ai_service import AIService
 
+# Import route blueprints
+from routes.config import bp as config_bp
+from routes.messages import bp as messages_bp
+from routes.sessions import bp as sessions_bp
+
 # Configure logging
 def setup_logger():
     logger = logging.getLogger('kokoro')
@@ -93,6 +98,11 @@ def create_app(config_class=Config):
     websocket_service = WebSocketService(app)  # This will set up the WebSocket routes
     ai_service = AIService(conversation_store)
     audio_service = AudioService(whisper_model, kokoro_pipeline)
+
+    # Register blueprints
+    app.register_blueprint(config_bp)
+    app.register_blueprint(messages_bp)
+    app.register_blueprint(sessions_bp)
 
     def broadcast_title_update(chat_id, title):
         """Broadcast title update to all connected clients"""
@@ -375,9 +385,9 @@ def create_app(config_class=Config):
         except Exception as e:
             logger.error(f"Error updating chat title: {str(e)}")
 
-    @app.route('/backend/api/transcribe', methods=['POST'])
+    @app.route('/api/transcribe', methods=['POST'])
     def transcribe_audio():
-        """Transcribe audio and get AI response"""
+        """Transcribe audio file."""
         try:
             # Get chat ID from form data
             chat_id = request.form.get('sessionId')
@@ -455,8 +465,9 @@ def create_app(config_class=Config):
                 'error': str(e)
             }), 500
 
-    @app.route('/backend/api/generate_title', methods=['POST'])
+    @app.route('/api/generate_title', methods=['POST'])
     def generate_title():
+        """Generate title for a chat."""
         try:
             data = request.json
             messages = data.get('messages', [])
@@ -477,14 +488,13 @@ def create_app(config_class=Config):
                 'error': str(e)
             }), 500
 
-    # Register error handlers
     @app.errorhandler(404)
     def not_found_error(error):
-        return {"error": "Not found"}, 404
+        return jsonify({'error': 'Not found'}), 404
 
     @app.errorhandler(500)
     def internal_error(error):
-        return {"error": "Internal server error"}, 500
+        return jsonify({'error': 'Internal server error'}), 500
         
     logger.info("Flask application created successfully")
     return app

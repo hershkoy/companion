@@ -12,11 +12,23 @@ const initialState: ChatState = {
 export const fetchMessages = createAsyncThunk<Message[], string>(
   'chat/fetchMessages',
   async (sessionId: string) => {
-    const response = await fetch(`/api/sessions/${sessionId}/messages`);
+    console.log('Fetching messages for session:', sessionId);
+    const response = await fetch(`/backend/api/sessions/${sessionId}/messages`);
+    console.log('Response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+    const text = await response.text();
+    console.log('Response text:', text);
+    
     if (!response.ok) {
-      throw new Error('Failed to fetch messages');
+      throw new Error(`Failed to fetch messages: ${response.status} ${text}`);
     }
-    return response.json();
+    
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      console.error('Failed to parse JSON:', e);
+      throw new Error(`Invalid JSON response: ${text}`);
+    }
   }
 );
 
@@ -29,19 +41,29 @@ interface SendMessagePayload {
 export const sendMessage = createAsyncThunk<Message, SendMessagePayload>(
   'chat/sendMessage',
   async ({ sessionId, content, thinkingMode }) => {
-    const response = await fetch(`/api/sessions/${sessionId}/messages`, {
+    console.log('Sending message:', { sessionId, content, thinkingMode });
+    const response = await fetch(`/backend/api/sessions/${sessionId}/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ content, thinking_mode: thinkingMode }),
     });
+    console.log('Response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+    const text = await response.text();
+    console.log('Response text:', text);
 
     if (!response.ok) {
-      throw new Error('Failed to send message');
+      throw new Error(`Failed to send message: ${response.status} ${text}`);
     }
 
-    return response.json();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      console.error('Failed to parse JSON:', e);
+      throw new Error(`Invalid JSON response: ${text}`);
+    }
   }
 );
 
