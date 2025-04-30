@@ -477,8 +477,8 @@ CREATE TABLE session_config (
     - [x] `frontend/src/hooks/useGpuStatus.js`: use `usePolling` to dispatch `pollGpuStatus()` every 10 s  
 
 15. **Utilities & Tokenization**  
-    - [ ] `frontend/src/utils/dateUtils.js`: format ISO timestamps for display  
-    - [ ] `frontend/src/utils/tokenUtils.js`: estimate token count for CoT prefix  
+    - [x] `frontend/src/utils/dateUtils.js`: format ISO timestamps for display  
+    - [x] `frontend/src/utils/tokenUtils.js`: estimate token count for CoT prefix  
 
 16. **Integration & Wiring**  
     - [ ] In `App.js`, set up React Router for `ChatPage` and `ConfigPage`; wrap in Redux `<Provider>`  
