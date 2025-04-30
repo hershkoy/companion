@@ -11,9 +11,8 @@ class ConversationStore:
         # In-memory cache of conversations
         self._conversations: Dict[str, List[dict]] = {}
 
-    def create_chat(self, title="New Chat") -> str:
-        """Create a new chat session"""
-        chat_id = f"chat-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{os.urandom(3).hex()}"
+    def create_chat(self, chat_id: str, title: str = "New Chat") -> str:
+        """Create a new chat session with the given ID and title"""
         db.create_session(chat_id, title)
         self._conversations[chat_id] = []
         return chat_id

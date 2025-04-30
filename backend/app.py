@@ -312,28 +312,15 @@ def get_chats():
         logger.error(f"Error getting chats: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/backend/api/sessions', methods=['POST'])  # Keep endpoint for backward compatibility
+@app.route("/api/sessions", methods=["POST"])
 def create_chat():
-    """Create a new chat"""
     try:
         data = request.get_json()
-        title = data.get('title', 'New Chat')
-        
-        # Generate unique chat ID
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        chat_id = f"chat-{timestamp}-{os.urandom(3).hex()}"
-        
+        title = data.get("title", "New Chat")
+        chat_id = f"chat-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{os.urandom(3).hex()}"
         conversation_store.create_chat(chat_id, title)
-        
-        chat_data = {
-            "id": chat_id,
-            "title": title,
-            "created_at": datetime.now().isoformat()
-        }
-        
-        return jsonify({"success": True, "session": chat_data})  # Keep response format for backward compatibility
+        return jsonify({"success": True, "chat": {"id": chat_id, "title": title}})
     except Exception as e:
-        logger.error(f"Error creating chat: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/backend/api/sessions/<chat_id>', methods=['PUT'])  # Keep endpoint for backward compatibility
