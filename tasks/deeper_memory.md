@@ -473,8 +473,8 @@ CREATE TABLE session_config (
     - [x] `frontend/src/components/Config/ConfigPanel.js`: fields for `topK`, `embedLight`, `embedDeep`, `idleThreshold` with inputs/sliders; save button calls `updateConfig`  
 
 14. **Hooks & Polling Logic**  
-    - [ ] `frontend/src/hooks/usePolling.js`: generic hook accepting callback and interval  
-    - [ ] `frontend/src/hooks/useGpuStatus.js`: use `usePolling` to dispatch `pollGpuStatus()` every 10 s  
+    - [x] `frontend/src/hooks/usePolling.js`: generic hook accepting callback and interval  
+    - [x] `frontend/src/hooks/useGpuStatus.js`: use `usePolling` to dispatch `pollGpuStatus()` every 10 s  
 
 15. **Utilities & Tokenization**  
     - [ ] `frontend/src/utils/dateUtils.js`: format ISO timestamps for display  
