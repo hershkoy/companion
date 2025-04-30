@@ -462,12 +462,12 @@ CREATE TABLE session_config (
     - [x] `frontend/src/api/ragApi.js`: `getModels()`, `getEmbeddingStatus()`, `triggerIndexing()`  
 
 12. **Chat UI Components**  
-    - [ ] `frontend/src/components/Chat/ChatWindow.js`: render `MessageList` and `MessageInput`; connect to `chatSlice`  
-    - [ ] `frontend/src/components/Chat/MessageList.js`: map over `messages` state, display `role`, `content`, `created_at`  
-    - [ ] `frontend/src/components/Chat/MessageInput.js`: textarea, "Send" button, include `<ThinkingModeSelector>`; on submit dispatch `sendMessage`  
-    - [ ] `frontend/src/components/Chat/ModelSelector.js`: dropdown bound to `configSlice.currentModel`; on change dispatch `updateConfig`  
-    - [ ] `frontend/src/components/Chat/ThinkingModeSelector.js`: dropdown with `cot`, `rag`, `hybrid`; persists via `configSlice`  
-    - [ ] `frontend/src/components/Chat/IndexingIndicator.js`: show spinner and "Indexing in progress..." when `gpuSlice.isIndexing` is true  
+    - [x] `frontend/src/components/Chat/ChatWindow.js`: render `MessageList` and `MessageInput`; connect to `chatSlice`  
+    - [x] `frontend/src/components/Chat/MessageList.js`: map over `messages` state, display `role`, `content`, `created_at`  
+    - [x] `frontend/src/components/Chat/MessageInput.js`: textarea, "Send" button, include `<ThinkingModeSelector>`; on submit dispatch `sendMessage`  
+    - [x] `frontend/src/components/Chat/ModelSelector.js`: dropdown bound to `configSlice.currentModel`; on change dispatch `updateConfig`  
+    - [x] `frontend/src/components/Chat/ThinkingModeSelector.js`: dropdown with `cot`, `rag`, `hybrid`; persists via `configSlice`  
+    - [x] `frontend/src/components/Chat/IndexingIndicator.js`: show spinner and "Indexing in progress..."  
 
 13. **Config Panel Components**  
     - [ ] `frontend/src/components/Config/ConfigPanel.js`: fields for `topK`, `embedLight`, `embedDeep`, `idleThreshold` with inputs/sliders; save button calls `updateConfig`  
