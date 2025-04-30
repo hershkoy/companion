@@ -470,7 +470,7 @@ CREATE TABLE session_config (
     - [x] `frontend/src/components/Chat/IndexingIndicator.js`: show spinner and "Indexing in progress..."  
 
 13. **Config Panel Components**  
-    - [ ] `frontend/src/components/Config/ConfigPanel.js`: fields for `topK`, `embedLight`, `embedDeep`, `idleThreshold` with inputs/sliders; save button calls `updateConfig`  
+    - [x] `frontend/src/components/Config/ConfigPanel.js`: fields for `topK`, `embedLight`, `embedDeep`, `idleThreshold` with inputs/sliders; save button calls `updateConfig`  
 
 14. **Hooks & Polling Logic**  
     - [ ] `frontend/src/hooks/usePolling.js`: generic hook accepting callback and interval  
