@@ -1,6 +1,5 @@
 import logger from './logger';
-
-const WS_URL = 'ws://localhost:5000/backend/ws';
+import { WS_BASE_URL } from '../api/config';
 
 class WebSocketManager {
   constructor() {
@@ -19,7 +18,7 @@ class WebSocketManager {
     this.isConnecting = true;
     logger.info('[WebSocket] Attempting connection');
 
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(WS_BASE_URL);
 
     ws.onopen = () => {
       logger.info('[WebSocket] Connection established');

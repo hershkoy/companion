@@ -1,9 +1,17 @@
 import logger from './logger';
+import { WS_BASE_URL } from '../api/config';
 
-const WS_URL = 'ws://localhost:5000/backend/ws';
-
+// Event types that can be emitted by the WebSocket
 type WebSocketEvent = 'connected' | 'disconnected' | 'message';
-type WebSocketListener = (event: WebSocketEvent, data?: any) => void;
+
+// Type for the message data received from WebSocket
+interface WebSocketMessage {
+  type: string;
+  payload: any; // This could be more specific based on your message types
+}
+
+// Type for the listener callback function
+type WebSocketListener = (event: WebSocketEvent, data?: WebSocketMessage) => void;
 
 class WebSocketManager {
   private ws: WebSocket | null;
@@ -27,7 +35,7 @@ class WebSocketManager {
     this.isConnecting = true;
     logger.info('[WebSocket] Attempting connection');
 
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(WS_BASE_URL);
 
     ws.onopen = (): void => {
       logger.info('[WebSocket] Connection established');
@@ -52,7 +60,7 @@ class WebSocketManager {
 
     ws.onmessage = (event: MessageEvent): void => {
       try {
-        const data = JSON.parse(event.data);
+        const data = JSON.parse(event.data) as WebSocketMessage;
         logger.debug('[WebSocket] Received message:', data);
         this.notifyListeners('message', data);
       } catch (error) {
@@ -92,7 +100,7 @@ class WebSocketManager {
     this.listeners.delete(callback);
   }
 
-  private notifyListeners(event: WebSocketEvent, data?: any): void {
+  private notifyListeners(event: WebSocketEvent, data?: WebSocketMessage): void {
     this.listeners.forEach(callback => callback(event, data));
   }
 }

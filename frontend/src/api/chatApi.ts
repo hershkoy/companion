@@ -1,14 +1,22 @@
-import { apiClient } from './config';
-import { Message } from '../types/chat';
+import axios from 'axios';
+import {
+  GetMessagesResponse,
+  PostMessageRequest,
+  PostMessageResponse,
+} from '../types/api';
 
-interface PostMessageRequest {
-  content: string;
-  thinking_mode: string;
-}
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
 
-export const getMessages = async (sessionId: string): Promise<Message[]> => {
+/**
+ * Fetches all messages for a given session
+ * @param sessionId - The ID of the chat session
+ * @returns Promise with the messages response
+ */
+export const getMessages = async (sessionId: string): Promise<GetMessagesResponse> => {
   try {
-    const response = await apiClient.get<Message[]>(`/sessions/${sessionId}/messages`);
+    const response = await axios.get<GetMessagesResponse>(
+      `${API_BASE_URL}/sessions/${sessionId}/messages`
+    );
     return response.data;
   } catch (error) {
     console.error('Error fetching messages:', error);
@@ -16,15 +24,21 @@ export const getMessages = async (sessionId: string): Promise<Message[]> => {
   }
 };
 
+/**
+ * Posts a new message to a chat session
+ * @param sessionId - The ID of the chat session
+ * @param messageData - The message data to send
+ * @returns Promise with the message response
+ */
 export const postMessage = async (
   sessionId: string,
-  { content, thinking_mode }: PostMessageRequest
-): Promise<Message> => {
+  messageData: PostMessageRequest
+): Promise<PostMessageResponse> => {
   try {
-    const response = await apiClient.post<Message>(`/sessions/${sessionId}/messages`, {
-      content,
-      thinking_mode,
-    });
+    const response = await axios.post<PostMessageResponse>(
+      `${API_BASE_URL}/sessions/${sessionId}/messages`,
+      messageData
+    );
     return response.data;
   } catch (error) {
     console.error('Error posting message:', error);

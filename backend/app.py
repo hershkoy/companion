@@ -85,6 +85,20 @@ def create_app(config_class=Config):
     # Load config
     app.config.from_object(config_class)
     
+    # Add request logging middleware
+    @app.before_request
+    def log_request():
+        logger.info(f"Incoming {request.method} request to {request.path}")
+        logger.debug(f"Request headers: {dict(request.headers)}")
+        if request.is_json:
+            logger.debug(f"Request JSON: {request.get_json()}")
+    
+    @app.after_request
+    def log_response(response):
+        logger.info(f"Response status: {response.status}")
+        logger.debug(f"Response headers: {dict(response.headers)}")
+        return response
+    
     # Initialize extensions
     create_tables(app.config['DATABASE_PATH'])
     
@@ -100,9 +114,16 @@ def create_app(config_class=Config):
     audio_service = AudioService(whisper_model, kokoro_pipeline)
 
     # Register blueprints
+    logger.info("Registering blueprints...")
     app.register_blueprint(config_bp)
     app.register_blueprint(messages_bp)
     app.register_blueprint(sessions_bp)
+    logger.info("Blueprints registered successfully!")
+    
+    # Log registered routes
+    logger.info("Registered routes:")
+    for rule in app.url_map.iter_rules():
+        logger.info(f"{rule.methods} {rule.rule}")
 
     def broadcast_title_update(chat_id, title):
         """Broadcast title update to all connected clients"""
@@ -276,17 +297,17 @@ def create_app(config_class=Config):
             logger.error(f"Error processing TTS for sentence: {str(e)}")
             return None
 
-    @app.route('/backend/api/sessions', methods=['GET'])  # Keep endpoint for backward compatibility
+    @app.route('/api/sessions', methods=['GET'])
     def get_chats():
         """Get all chats"""
         try:
             chats = conversation_store.get_all_chats()
-            return jsonify({"success": True, "sessions": chats})  # Keep response format for backward compatibility
+            return jsonify({"success": True, "sessions": chats})
         except Exception as e:
             logger.error(f"Error getting chats: {str(e)}")
             return jsonify({"success": False, "error": str(e)}), 500
 
-    @app.route("/api/sessions", methods=["POST"])
+    @app.route('/api/sessions', methods=['POST'])
     def create_chat():
         try:
             data = request.get_json()
@@ -297,7 +318,7 @@ def create_app(config_class=Config):
         except Exception as e:
             return jsonify({"success": False, "error": str(e)}), 500
 
-    @app.route('/backend/api/sessions/<chat_id>', methods=['PUT'])  # Keep endpoint for backward compatibility
+    @app.route('/api/sessions/<chat_id>', methods=['PUT'])
     def update_chat(chat_id):
         """Update chat title"""
         try:
@@ -314,7 +335,7 @@ def create_app(config_class=Config):
             logger.error(f"Error updating chat: {str(e)}")
             return jsonify({"success": False, "error": str(e)}), 500
 
-    @app.route('/backend/api/sessions/<chat_id>', methods=['DELETE'])  # Keep endpoint for backward compatibility
+    @app.route('/api/sessions/<chat_id>', methods=['DELETE'])
     def delete_chat(chat_id):
         """Delete a chat"""
         try:
@@ -324,7 +345,7 @@ def create_app(config_class=Config):
             logger.error(f"Error deleting chat: {str(e)}")
             return jsonify({"success": False, "error": str(e)}), 500
 
-    @app.route('/backend/api/sessions/<chat_id>/messages', methods=['GET'])  # Keep endpoint for backward compatibility
+    @app.route('/api/sessions/<chat_id>/messages', methods=['GET'])
     def get_chat_messages(chat_id):
         """Get all messages for a chat"""
         try:

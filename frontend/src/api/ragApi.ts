@@ -1,28 +1,21 @@
 import axios from 'axios';
+import {
+  GetModelsResponse,
+  GetEmbeddingStatusResponse,
+  TriggerIndexingResponse,
+} from '../types/api';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/backend/api';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
 
-interface Model {
-  id: string;
-  name: string;
-  description: string;
-}
-
-interface EmbeddingStatus {
-  is_indexing: boolean;
-  total_documents: number;
-  indexed_documents: number;
-  last_indexed: string | null;
-}
-
-interface IndexingResponse {
-  status: string;
-  message: string;
-}
-
-export const getModels = async (): Promise<Model[]> => {
+/**
+ * Fetches available models from the API
+ * @returns Promise with the models response
+ */
+export const getModels = async (): Promise<GetModelsResponse> => {
   try {
-    const response = await axios.get<Model[]>(`${API_BASE_URL}/models`);
+    const response = await axios.get<GetModelsResponse>(
+      `${API_BASE_URL}/models`
+    );
     return response.data;
   } catch (error) {
     console.error('Error fetching models:', error);
@@ -30,9 +23,15 @@ export const getModels = async (): Promise<Model[]> => {
   }
 };
 
-export const getEmbeddingStatus = async (): Promise<EmbeddingStatus> => {
+/**
+ * Fetches the current embedding indexing status
+ * @returns Promise with the embedding status response
+ */
+export const getEmbeddingStatus = async (): Promise<GetEmbeddingStatusResponse> => {
   try {
-    const response = await axios.get<EmbeddingStatus>(`${API_BASE_URL}/embeddings/status`);
+    const response = await axios.get<GetEmbeddingStatusResponse>(
+      `${API_BASE_URL}/embeddings/status`
+    );
     return response.data;
   } catch (error) {
     console.error('Error fetching embedding status:', error);
@@ -40,9 +39,15 @@ export const getEmbeddingStatus = async (): Promise<EmbeddingStatus> => {
   }
 };
 
-export const triggerIndexing = async (): Promise<IndexingResponse> => {
+/**
+ * Triggers a new embedding indexing job
+ * @returns Promise with the indexing job response
+ */
+export const triggerIndexing = async (): Promise<TriggerIndexingResponse> => {
   try {
-    const response = await axios.post<IndexingResponse>(`${API_BASE_URL}/embeddings/index`);
+    const response = await axios.post<TriggerIndexingResponse>(
+      `${API_BASE_URL}/embeddings/index`
+    );
     return response.data;
   } catch (error) {
     console.error('Error triggering indexing:', error);
