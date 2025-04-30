@@ -23,6 +23,9 @@ import json
 from flask_socketio import SocketIO
 import websockets
 from config import Config
+from services.websocket_service import WebSocketService
+from services.audio_service import AudioService
+from services.ai_service import AIService
 
 # Configure logging
 def setup_logger():
@@ -90,6 +93,11 @@ def create_app(config_class=Config):
     kokoro_pipeline = KPipeline(lang_code='a', device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
     logger.info("Models loaded successfully!")
 
+    # Initialize services
+    websocket_service = WebSocketService(app)
+    ai_service = AIService(conversation_store)
+    audio_service = AudioService(whisper_model, kokoro_pipeline)  # These should be initialized elsewhere
+    
     # Store WebSocket connections
     ws_connections = set()
 
@@ -415,9 +423,9 @@ def create_app(config_class=Config):
         """Update chat title in the background"""
         try:
             if should_generate_title(messages):
-                title = generate_chat_title(messages)
+                title = ai_service.generate_title(messages, chat_id)
                 conversation_store.update_chat_title(chat_id, title)
-                broadcast_title_update(chat_id, title)
+                websocket_service.broadcast_title_update(chat_id, title)
         except Exception as e:
             logger.error(f"Error updating chat title: {str(e)}")
 
@@ -426,10 +434,10 @@ def create_app(config_class=Config):
         """Transcribe audio and get AI response"""
         try:
             # Get chat ID from form data
-            chat_id = request.form.get('sessionId')  # Keep form field name for backward compatibility
+            chat_id = request.form.get('sessionId')
             if not chat_id:
                 return jsonify({"success": False, "error": "Chat ID is required"}), 400
-            
+                
             if 'audio' not in request.files:
                 return jsonify({'error': 'No audio file provided'}), 400
             
@@ -439,7 +447,6 @@ def create_app(config_class=Config):
             
             num_ctx = int(request.form.get('num_ctx', '2048'))
             temp_path = None
-            wav_files = []  # Keep track of temporary wav files
             
             try:
                 logger.info(f"Processing request for chat: {chat_id}")
@@ -449,19 +456,18 @@ def create_app(config_class=Config):
                     temp_path = temp_audio.name
                     audio_file.save(temp_path)
                 
-                # Transcribe the audio using Whisper
-                segments, info = whisper_model.transcribe(temp_path, beam_size=5, language="en", task="transcribe")
-                transcription = " ".join(segment.text for segment in segments)
+                # Transcribe the audio
+                transcription, info = audio_service.transcribe_audio(temp_path)
                 
                 # Store user message in conversation history
                 conversation_store.add_message(chat_id, {
                     'type': 'user',
-                    'text': transcription.strip()
+                    'text': transcription
                 })
                 
                 # Get AI response with conversation history
                 max_history_tokens = int(num_ctx * 0.75)  # Use 75% of context window for history
-                ai_response = get_ollama_response(transcription.strip(), chat_id, max_history_tokens)
+                ai_response = ai_service.get_response(transcription, chat_id, max_history_tokens)
                 
                 # Store AI response in conversation history
                 conversation_store.add_message(chat_id, {
@@ -469,71 +475,18 @@ def create_app(config_class=Config):
                     'text': ai_response
                 })
                 
-                # Log the transcription and language info
-                logger.info("Whisper Transcription:")
-                logger.info("-" * 40)
-                logger.info(f"Chat ID: {chat_id}")
-                logger.info(f"Language: {info.language} (probability: {info.language_probability:.2f})")
-                logger.info(transcription)
-                logger.info("-" * 40)
-                
-                logger.info("AI Response (after filtering):")
-                logger.info("-" * 40)
-                logger.info(f"Chat ID: {chat_id}")
-                logger.info(ai_response)
-                logger.info("-" * 40)
-                
-                # Split response into sentences
-                sentences = [s.strip() for s in re.split(r'[.!?]+', ai_response) if s.strip()]
-                
-                # Process sentences in parallel with Kokoro
-                MAX_WORKERS = 2 if torch.cuda.is_available() else 4
-                audio_segments = []
-                
-                with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-                    future_to_sentence = {
-                        executor.submit(process_sentence, sentence, kokoro_pipeline): i 
-                        for i, sentence in enumerate(sentences)
-                    }
-                    
-                    # Create a list to store results in order
-                    results = [None] * len(sentences)
-                    
-                    # Process completed sentences as they finish
-                    for future in as_completed(future_to_sentence):
-                        sentence_idx = future_to_sentence[future]
-                        try:
-                            audio_data = future.result()
-                            if audio_data is not None:
-                                # Create unique temporary wav file
-                                wav_file = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
-                                wav_files.append(wav_file.name)
-                                sf.write(wav_file.name, audio_data, 22050)
-                                
-                                # Read and encode the audio file
-                                with open(wav_file.name, 'rb') as audio_file:
-                                    audio_base64 = base64.b64encode(audio_file.read()).decode('utf-8')
-                                
-                                # Store result with index for ordering
-                                results[sentence_idx] = {
-                                    'text': sentences[sentence_idx],
-                                    'audio': audio_base64
-                                }
-                        except Exception as e:
-                            logger.error(f"Error processing sentence {sentence_idx + 1}: {str(e)}")
-                
-                # Filter out None results
-                results = [r for r in results if r is not None]
+                # Process text to speech
+                audio_segments = audio_service.process_text_to_speech(ai_response)
                 
                 # Start background title generation
                 asyncio.run(update_chat_title_background(chat_id, conversation_store.get_history(chat_id)))
                 
                 return jsonify({
                     'success': True,
-                    'transcription': transcription.strip(),
+                    'transcription': transcription,
                     'response': {
                         'agentMessage': ai_response,
-                        'segments': results
+                        'segments': audio_segments
                     },
                     'language': {
                         'detected': info.language,
@@ -541,28 +494,13 @@ def create_app(config_class=Config):
                     }
                 })
             
-            except Exception as e:
-                logger.error(f"Error during processing: {str(e)}")
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500
-            
             finally:
-                # Clean up all temporary files
+                # Clean up temporary file
                 if temp_path and os.path.exists(temp_path):
                     try:
                         os.unlink(temp_path)
                     except Exception as e:
                         logger.warning(f"Could not delete temporary file {temp_path}: {e}")
-                
-                # Clean up wav files
-                for wav_file in wav_files:
-                    try:
-                        if os.path.exists(wav_file):
-                            os.unlink(wav_file)
-                    except Exception as e:
-                        logger.warning(f"Could not delete temporary wav file {wav_file}: {e}")
 
         except Exception as e:
             logger.error(f"Error during processing: {str(e)}")
@@ -576,58 +514,16 @@ def create_app(config_class=Config):
         try:
             data = request.json
             messages = data.get('messages', [])
+            chat_id = data.get('session_id')
             
-            # Prepare conversation for title generation
-            conversation_text = "\n".join([f"{msg['type']}: {msg['text']}" for msg in messages])
+            title = ai_service.generate_title(messages, chat_id)
+            websocket_service.broadcast_title_update(chat_id, title)
             
-            # Use the existing Ollama API call pattern
-            url = os.getenv('OLLAMA_URL', 'http://localhost:11434/api/generate')
-            
-            # Use the title-specific system prompt
-            title_system_prompt = """You are a helpful assistant that generates concise, descriptive titles for conversations.
-Your task is to create a brief, clear title that captures the main topic or theme of the conversation.
-Important: Output ONLY the title itself, without any preamble or explanation.
-The title should be 2-6 words long and use title case.
-Example good titles:
-- "AI Development Strategy"
-- "Personal Finance Planning"
-- "Home Automation Setup"
-"""
-            
-            prompt = f"{title_system_prompt}\n\nConversation:\n{conversation_text}\n\nTitle:"
-            
-            response = requests.post(url, json={
-                "model": os.getenv('OLLAMA_MODEL', 'deepseek-r1'),
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.7,
-                    "top_p": 0.9,
-                    "num_ctx": 2048
-                }
-            }, timeout=30)
-            
-            if response.status_code == 200:
-                title = response.json()['response'].strip()
-                # Remove any quotes that might be in the response
-                title = title.strip('"\'')
-                
-                # Broadcast the title update via WebSocket
-                broadcast_title_update(data.get('session_id'), title)
-                
-                return jsonify({
-                    'success': True,
-                    'title': title
-                })
-            else:
-                raise Exception(f"Ollama API error: {response.status_code}")
-            
-        except requests.exceptions.Timeout:
-            logger.error("Title generation timed out")
             return jsonify({
-                'success': False,
-                'error': "Title generation timed out after 30 seconds"
-            }), 500
+                'success': True,
+                'title': title
+            })
+            
         except Exception as e:
             logger.error(f"Error generating title: {str(e)}")
             return jsonify({
