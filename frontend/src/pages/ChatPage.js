@@ -8,7 +8,7 @@ import { fetchModels, fetchConfig } from '../store/slices/configSlice';
 import useGpuStatus from '../hooks/useGpuStatus';
 import './ChatPage.css';
 
-const ChatPage = () => {
+function ChatPage() {
   const { sessionId } = useParams();
   const dispatch = useDispatch();
   const [error, setError] = useState(null);
@@ -23,7 +23,7 @@ const ChatPage = () => {
         try {
           await Promise.all([
             dispatch(fetchModels()).unwrap(),
-            dispatch(fetchConfig(sessionId)).unwrap()
+            dispatch(fetchConfig(sessionId)).unwrap(),
           ]);
         } catch (err) {
           setError(err.message || 'Failed to load chat data');
@@ -38,7 +38,7 @@ const ChatPage = () => {
       <div className="error-container">
         <div className="error-message">
           {error}
-          <button onClick={() => window.location.reload()} className="retry-button">
+          <button type="button" onClick={() => window.location.reload()} className="retry-button">
             Retry
           </button>
         </div>
@@ -55,6 +55,6 @@ const ChatPage = () => {
       <ChatWindow sessionId={sessionId} />
     </div>
   );
-};
+}
 
 export default ChatPage;

@@ -10,27 +10,26 @@ const generateSessionId = () => {
   return `${timestamp}-${random}`;
 };
 
-const LoadingFallback = () => (
-  <div className="loading-container">
-    <div className="loading-spinner">Loading...</div>
-  </div>
-);
+function LoadingFallback() {
+  return (
+    <div className="loading-container">
+      <div className="loading-spinner">Loading...</div>
+    </div>
+  );
+}
 
-const App = () => {
+function App() {
   return (
     <div className="app">
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
           <Route path="/sessions/:sessionId" element={<ChatPage />} />
           <Route path="/sessions/:sessionId/config" element={<ConfigPage />} />
-          <Route
-            path="/"
-            element={<Navigate to={`/sessions/${generateSessionId()}`} replace />}
-          />
+          <Route path="/" element={<Navigate to={`/sessions/${generateSessionId()}`} replace />} />
         </Routes>
       </Suspense>
     </div>
   );
-};
+}
 
 export default App;
