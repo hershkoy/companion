@@ -22,6 +22,17 @@ export const fetchModels = createAsyncThunk<ModelConfig[]>('config/fetchModels',
   return response.json();
 });
 
+export const fetchConfig = createAsyncThunk<ConfigState, string>(
+  'config/fetchConfig',
+  async (sessionId: string) => {
+    const response = await fetch(`/api/sessions/${sessionId}/config`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch config');
+    }
+    return response.json();
+  }
+);
+
 interface UpdateConfigPayload {
   model_name?: string;
   thinking_mode?: string;
@@ -62,6 +73,16 @@ const configSlice = createSlice({
       .addCase(fetchModels.rejected, (state, action) => {
         state.status = 'failed';
         state.error = action.error.message || 'Failed to fetch models';
+      })
+      .addCase(fetchConfig.pending, state => {
+        state.status = 'loading';
+      })
+      .addCase(fetchConfig.fulfilled, (state, action) => {
+        return { ...state, ...action.payload, status: 'succeeded', error: null };
+      })
+      .addCase(fetchConfig.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.error.message || 'Failed to fetch config';
       });
   },
 });

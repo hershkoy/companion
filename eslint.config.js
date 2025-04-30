@@ -7,9 +7,12 @@ import prettier from 'eslint-plugin-prettier';
 import globals from 'globals';
 
 export default [
+  {
+    ignores: ['**/dist/**', '**/node_modules/**', '**/build/**'],
+  },
   js.configs.recommended,
   {
-    files: ['**/*.{ts,tsx}'],
+    files: ['**/*.{js,jsx,ts,tsx}'],
     plugins: {
       '@typescript-eslint': typescript,
       'react': react,
@@ -31,23 +34,36 @@ export default [
         ...globals.jest,
       },
     },
+    settings: {
+      react: {
+        version: 'detect',
+      },
+      'import/resolver': {
+        node: {
+          paths: ['src'],
+          extensions: ['.js', '.jsx', '.ts', '.tsx'],
+        },
+      },
+    },
     rules: {
-      'prettier/prettier': ['error', {}, { usePrettierrc: true }],
+      'prettier/prettier': ['error', {
+        singleQuote: true,
+        trailingComma: 'es5',
+        printWidth: 100,
+        tabWidth: 2,
+        endOfLine: 'auto',
+      }],
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': ['warn'],
       'react/function-component-definition': ['error', {
-        namedComponents: ['function-declaration', 'arrow-function'],
+        namedComponents: 'function-declaration',
         unnamedComponents: 'arrow-function',
       }],
-      'no-undef': 'off', // TypeScript handles this
-    },
-    settings: {
-      react: {
-        version: 'detect',
-      },
+      'import/prefer-default-export': 'off',
+      'no-param-reassign': ['error', { props: false }],
     },
   },
 ]; 

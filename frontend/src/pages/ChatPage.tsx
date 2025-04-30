@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
+import { AppDispatch } from '../store/store';
 import ChatWindow from '../components/Chat/ChatWindow';
 import ModelSelector from '../components/Chat/ModelSelector';
 import IndexingIndicator from '../components/Chat/IndexingIndicator';
@@ -8,10 +9,14 @@ import { fetchModels, fetchConfig } from '../store/slices/configSlice';
 import useGpuStatus from '../hooks/useGpuStatus';
 import './ChatPage.css';
 
-function ChatPage() {
-  const { sessionId } = useParams();
-  const dispatch = useDispatch();
-  const [error, setError] = useState(null);
+type ChatPageParams = {
+  sessionId?: string;
+};
+
+function ChatPage(): React.ReactElement {
+  const { sessionId } = useParams<'sessionId'>();
+  const dispatch = useDispatch<AppDispatch>();
+  const [error, setError] = useState<string | null>(null);
 
   // Start GPU status polling
   useGpuStatus();
@@ -26,7 +31,7 @@ function ChatPage() {
             dispatch(fetchConfig(sessionId)).unwrap(),
           ]);
         } catch (err) {
-          setError(err.message || 'Failed to load chat data');
+          setError((err as Error).message || 'Failed to load chat data');
         }
       };
       loadData();
@@ -52,9 +57,9 @@ function ChatPage() {
         <ModelSelector />
         <IndexingIndicator />
       </div>
-      <ChatWindow sessionId={sessionId} />
+      <ChatWindow sessionId={sessionId || ''} />
     </div>
   );
 }
 
-export default ChatPage;
+export default ChatPage; 
