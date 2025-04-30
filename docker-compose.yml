@@ -1,59 +1,15 @@
 version: '3.8'
 
 services:
-  backend:
-    build: 
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "5000:5000"
-    environment:
-      - FLASK_APP=app.py
-      - FLASK_ENV=production
-      - DATABASE_URL=sqlite:///kokoro.db
-      - CHROMA_PERSIST_DIR=/app/chroma_db
-      - GPU_IDLE_THRESHOLD=10
-      - IDLE_THRESHOLD_SECONDS=600
-      - OLLAMA_BASE_URL=http://ollama:11434
-    volumes:
-      - ./backend:/app
-      - chroma_data:/app/chroma_db
-    depends_on:
-      - chroma
-      - ollama
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_API_URL=http://localhost:5000
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    depends_on:
-      - backend
-
   chroma:
     image: ghcr.io/chroma-core/chroma:latest
     ports:
       - "8000:8000"
     volumes:
       - chroma_data:/chroma/chroma
-
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_PORT=8000
 
 volumes:
   chroma_data: 

@@ -1,4 +1,4 @@
-.PHONY: install start test lint clean build deploy
+.PHONY: install start test lint clean docker-chroma
 
 # Development Setup
 install:
@@ -8,7 +8,7 @@ install:
 
 # Start Services
 start-backend:
-	cd backend && . venv/bin/activate && flask run
+	cd backend && . venv/bin/activate && flask run --debug
 
 start-frontend:
 	cd frontend && npm start
@@ -42,14 +42,11 @@ lint: lint-backend lint-frontend
 db-init:
 	cd backend && . venv/bin/activate && python db/init_db.py
 
-# Docker
-docker-build:
-	docker-compose build
+# Docker Chroma
+docker-chroma-up:
+	docker-compose up -d chroma
 
-docker-up:
-	docker-compose up -d
-
-docker-down:
+docker-chroma-down:
 	docker-compose down
 
 # Cleanup
@@ -65,12 +62,11 @@ clean:
 # Help
 help:
 	@echo "Available commands:"
-	@echo "  install        - Install dependencies for both backend and frontend"
-	@echo "  start         - Start both backend and frontend servers"
-	@echo "  test          - Run all tests"
-	@echo "  lint          - Run linting and formatting"
-	@echo "  db-init       - Initialize the database"
-	@echo "  docker-build  - Build Docker containers"
-	@echo "  docker-up     - Start Docker containers"
-	@echo "  docker-down   - Stop Docker containers"
-	@echo "  clean         - Remove temporary files and build artifacts" 
+	@echo "  install            - Install dependencies for both backend and frontend"
+	@echo "  start             - Start both backend and frontend servers"
+	@echo "  test              - Run all tests"
+	@echo "  lint              - Run linting and formatting"
+	@echo "  db-init           - Initialize the database"
+	@echo "  docker-chroma-up  - Start Chroma in Docker"
+	@echo "  docker-chroma-down- Stop Chroma container"
+	@echo "  clean             - Remove temporary files and build artifacts" 

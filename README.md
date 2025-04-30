@@ -18,7 +18,8 @@ A sophisticated chat application with hybrid Chain-of-Thought (CoT) and Retrieva
 - Node.js 16+
 - NVIDIA GPU (recommended)
 - SQLite 3
-- Ollama
+- Docker (for Chroma vector store)
+- Ollama (running locally or in Docker)
 
 ## Quick Start
 
@@ -28,21 +29,18 @@ git clone <repository-url>
 cd kokoro
 ```
 
-2. Set up the backend:
+2. Start Chroma vector store:
+```bash
+docker-compose up -d chroma
+```
+
+3. Set up the backend:
 ```bash
 cd backend
 python -m venv venv
 source venv/bin/activate  # On Windows: .\venv\Scripts\activate
 pip install -r requirements.txt
 python db/init_db.py  # Initialize database
-flask run
-```
-
-3. Set up the frontend:
-```bash
-cd frontend
-npm install
-npm start
 ```
 
 4. Configure environment variables:
@@ -51,11 +49,29 @@ Create a `.env` file in the backend directory:
 FLASK_APP=app.py
 FLASK_ENV=development
 DATABASE_URL=sqlite:///kokoro.db
-CHROMA_PERSIST_DIR=./chroma_db
+CHROMA_HOST=localhost
+CHROMA_PORT=8000
 GPU_IDLE_THRESHOLD=10
 IDLE_THRESHOLD_SECONDS=600
-OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_BASE_URL=http://localhost:11434  # Adjust if Ollama is running elsewhere
 ```
+
+5. Start the backend:
+```bash
+flask run
+```
+
+6. Set up and start the frontend (in a new terminal):
+```bash
+cd frontend
+npm install
+npm start
+```
+
+The application will be available at:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:5000
+- Chroma: http://localhost:8000
 
 ## Environment Variables
 
@@ -64,7 +80,8 @@ OLLAMA_BASE_URL=http://localhost:11434
 | FLASK_APP | Flask application entry point | app.py |
 | FLASK_ENV | Environment (development/production) | development |
 | DATABASE_URL | SQLite database URL | sqlite:///kokoro.db |
-| CHROMA_PERSIST_DIR | Chroma vector store directory | ./chroma_db |
+| CHROMA_HOST | Chroma server host | localhost |
+| CHROMA_PORT | Chroma server port | 8000 |
 | GPU_IDLE_THRESHOLD | GPU utilization threshold (%) | 10 |
 | IDLE_THRESHOLD_SECONDS | Idle time before background indexing | 600 |
 | OLLAMA_BASE_URL | Ollama API endpoint | http://localhost:11434 |
@@ -101,6 +118,26 @@ OLLAMA_BASE_URL=http://localhost:11434
 
 ## Development
 
+### Running Services
+
+1. Start Chroma (required for vector storage):
+```bash
+docker-compose up -d chroma
+```
+
+2. Start the backend (in development mode):
+```bash
+cd backend
+. venv/bin/activate  # On Windows: .\venv\Scripts\activate
+flask run --debug
+```
+
+3. Start the frontend development server:
+```bash
+cd frontend
+npm start
+```
+
 ### Code Style
 
 Backend:
@@ -135,6 +172,17 @@ The system automatically starts document indexing when:
 To manually trigger indexing:
 ```bash
 curl -X POST http://localhost:5000/api/embeddings/index
+```
+
+### Development Commands
+
+Use the Makefile for common tasks:
+```bash
+make install      # Install dependencies
+make start       # Start backend and frontend
+make test        # Run all tests
+make lint        # Run linting
+make db-init     # Initialize database
 ```
 
 ## Contributing
