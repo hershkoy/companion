@@ -1,0 +1,15 @@
+---
+description: 
+globs: *.ts
+alwaysApply: false
+---
+
+- we are running on a windows machine
+- Use bun as package manager. See [package.json](mdc:backend/reddit-eval-tool/package.json) for scripts
+- Use camelCase for function and variable names
+- Use UPPERCASE_SNAKE_CASE for hardcoded constants
+- Prefer `function foo()` over `const foo = () =>`
+- Use `Array<T>` instead of `T[]`
+
+
+- Use named exports over default exports, e.g (`export const variable ...`, `export function `)

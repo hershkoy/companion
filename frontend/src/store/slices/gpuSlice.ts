@@ -1,7 +1,18 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { GPUState } from '../../types/store';
+
+interface GPUStatusResponse {
+  is_indexing: boolean;
+  gpu_utilization: number;
+}
+
+interface IndexingResponse {
+  status: string;
+  message: string;
+}
 
 // Async thunks
-export const pollGpuStatus = createAsyncThunk('gpu/pollStatus', async () => {
+export const pollGpuStatus = createAsyncThunk<GPUStatusResponse>('gpu/pollStatus', async () => {
   const response = await fetch('/api/embeddings/status');
   if (!response.ok) {
     throw new Error('Failed to fetch GPU status');
@@ -9,7 +20,7 @@ export const pollGpuStatus = createAsyncThunk('gpu/pollStatus', async () => {
   return response.json();
 });
 
-export const triggerIndexing = createAsyncThunk('gpu/triggerIndexing', async () => {
+export const triggerIndexing = createAsyncThunk<IndexingResponse>('gpu/triggerIndexing', async () => {
   const response = await fetch('/api/embeddings/index', {
     method: 'POST',
   });
@@ -19,9 +30,10 @@ export const triggerIndexing = createAsyncThunk('gpu/triggerIndexing', async () 
   return response.json();
 });
 
-const initialState = {
+const initialState: GPUState = {
+  isAvailable: false,
   isIndexing: false,
-  gpuUtilization: 0,
+  gpuUtil: 0,
   lastIndexingStart: null,
   status: 'idle',
   error: null,
@@ -31,31 +43,31 @@ const gpuSlice = createSlice({
   name: 'gpu',
   initialState,
   reducers: {
-    resetError: state => {
+    resetError: (state) => {
       state.error = null;
     },
   },
-  extraReducers: builder => {
+  extraReducers: (builder) => {
     builder
       // Poll status cases
-      .addCase(pollGpuStatus.pending, state => {
+      .addCase(pollGpuStatus.pending, (state) => {
         state.status = 'loading';
       })
-      .addCase(pollGpuStatus.fulfilled, (state, action) => {
+      .addCase(pollGpuStatus.fulfilled, (state, action: PayloadAction<GPUStatusResponse>) => {
         state.status = 'succeeded';
         state.isIndexing = action.payload.is_indexing;
-        state.gpuUtilization = action.payload.gpu_utilization;
+        state.gpuUtil = action.payload.gpu_utilization;
         state.error = null;
       })
       .addCase(pollGpuStatus.rejected, (state, action) => {
         state.status = 'failed';
-        state.error = action.error.message;
+        state.error = action.error.message || 'An error occurred';
       })
       // Trigger indexing cases
-      .addCase(triggerIndexing.pending, state => {
+      .addCase(triggerIndexing.pending, (state) => {
         state.status = 'loading';
       })
-      .addCase(triggerIndexing.fulfilled, (state, action) => {
+      .addCase(triggerIndexing.fulfilled, (state) => {
         state.status = 'succeeded';
         state.isIndexing = true;
         state.lastIndexingStart = new Date().toISOString();
@@ -63,10 +75,10 @@ const gpuSlice = createSlice({
       })
       .addCase(triggerIndexing.rejected, (state, action) => {
         state.status = 'failed';
-        state.error = action.error.message;
+        state.error = action.error.message || 'An error occurred';
       });
   },
 });
 
 export const { resetError } = gpuSlice.actions;
-export default gpuSlice.reducer;
+export default gpuSlice.reducer; 

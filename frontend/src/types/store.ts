@@ -24,6 +24,7 @@ export interface GPUState {
   isAvailable: boolean;
   isIndexing: boolean;
   gpuUtil: number;
+  lastIndexingStart: string | null;
   status: string;
   error: string | null;
 }
