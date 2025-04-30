@@ -381,47 +381,47 @@ CREATE TABLE session_config (
    - [x] Create `backend/config.py` with environment-based settings (DB path, Chroma URL, GPU thresholds).  
 
 3. **ORM / Data Models**  
-   - [ ] In `backend/models/session.py`, define Pydantic or SQLAlchemy model for `Session` mirroring `sessions` table.  
-   - [ ] In `backend/models/message.py`, define model for `Message` with `session_id`, `role`, `content`, `created_at`.  
-   - [ ] In `backend/models/document.py`, define model for `Document` with JSON metadata.  
-   - [ ] In `backend/models/chunk.py`, define model for `DocumentChunk` including `chroma_id`.  
-   - [ ] In `backend/models/session_config.py`, define model for `SessionConfig` with default values (`top_k=5`, `idle_threshold_s=600`, etc.).  
+   - [x] In `backend/models/session.py`, define Pydantic or SQLAlchemy model for `Session` mirroring `sessions` table.  
+   - [x] In `backend/models/message.py`, define model for `Message` with `session_id`, `role`, `content`, `created_at`.  
+   - [x] In `backend/models/document.py`, define model for `Document` with JSON metadata.  
+   - [x] In `backend/models/chunk.py`, define model for `DocumentChunk` including `chroma_id`.  
+   - [x] In `backend/models/session_config.py`, define model for `SessionConfig` with default values (`top_k=5`, `idle_threshold_s=600`, etc.).  
 
 4. **Flask Blueprints / API Routes**  
-   - [ ] `backend/routes/sessions.py`:  
+   - [x] `backend/routes/sessions.py`:  
      - GET `/api/sessions` → list sessions  
      - POST `/api/sessions` → create session (generate `session_id`)  
      - GET `/api/sessions/<session_id>` → session detail + config  
-   - [ ] `backend/routes/messages.py`:  
+   - [x] `backend/routes/messages.py`:  
      - GET `/api/sessions/<session_id>/messages` → fetch messages  
      - POST `/api/sessions/<session_id>/messages` → send user message, accept JSON `{ content, thinking_mode? }`, call RAG/CoT pipeline  
-   - [ ] `backend/routes/config.py`:  
+   - [x] `backend/routes/config.py`:  
      - GET `/api/config/<session_id>` → return `SessionConfig` JSON  
      - PUT `/api/config/<session_id>` → accept updated config fields (`model_name`, `thinking_mode`, `top_k`, `embed_light`, `embed_deep`, `idle_threshold_s`)  
-   - [ ] `backend/routes/embeddings.py`:  
+   - [x] `backend/routes/embeddings.py`:  
      - GET `/api/embeddings/status` → return `{ is_indexing: bool, gpu_util: float }`  
      - POST `/api/embeddings/index` → trigger manual deep indexing job  
 
 5. **Model Manager Service**  
-   - [ ] `backend/services/model_manager.py`:  
+   - [x] `backend/services/model_manager.py`:  
      - Implement `load_chat_model(name: str)` using Ollama Python client, caching loaded model handle.  
      - Implement `unload_chat_model()` to free GPU memory.  
      - Implement `load_embedder(name: str)` for light or deep embedder.  
      - Maintain internal state of `current_model` and `current_embedder`.  
 
 6. **GPU Monitor Service**  
-   - [ ] `backend/services/gpu_monitor.py`:  
+   - [x] `backend/services/gpu_monitor.py`:  
      - Use `pynvml` to poll GPU utilization every 10 s.  
      - Expose `get_utilization() -> float` (0–100).  
 
 7. **Chroma Client Service**  
-   - [ ] `backend/services/chroma_client.py`:  
+   - [x] `backend/services/chroma_client.py`:  
      - Initialize Chroma client pointing at local on-disk store.  
      - Implement `upsert_chunks(chunks: List[dict])` where each dict is `{ chroma_id, embedding, metadata }`.  
      - Implement `query(embedding: List[float], top_k: int) -> List[{ chroma_id, text, score }]`.  
 
 8. **RAG Service & Hybrid Logic**  
-   - [ ] `backend/services/rag_service.py`:  
+   - [x] `backend/services/rag_service.py`:  
      - `generate_response(session_id: str, user_message: str, thinking_mode: str) -> str`  
        - Embed `user_message` with light embedder  
        - Retrieve `top_k` document chunks via Chroma  
@@ -430,11 +430,11 @@ CREATE TABLE session_config (
        - Return assistant's text response  
 
 9. **Background Indexing Scheduler**  
-   - [ ] `backend/services/scheduler.py`:  
+   - [x] `backend/services/scheduler.py`:  
      - Monitor both GPU utilization and last user activity timestamp (stored in-memory or in SQLite).  
      - When GPU util < configured threshold for ≥ `idle_threshold_s`, enqueue `indexing_task`.  
      - Listen for new user messages to cancel any running indexing job.  
-   - [ ] `backend/tasks/indexing_task.py`:  
+   - [x] `backend/tasks/indexing_task.py`:  
      - On start: call `model_manager.unload_chat_model()`, `model_manager.load_embedder(embed_deep)`  
      - Query `documents` table for records where `updated_at` > last index time  
      - For each document, chunk text into ~500-token windows, embed with deep embedder, call `chroma_client.upsert_chunks()`  
@@ -442,24 +442,24 @@ CREATE TABLE session_config (
      - On finish or cancellation: reload chat model, switch embedder back to light  
 
 10. **Frontend Project & Redux Setup**  
-    - [ ] Create new React app under `frontend/` (or update existing)  
-    - [ ] Install Redux Toolkit and React-Redux  
-    - [ ] `frontend/src/store/store.js`: initialize with `configureStore({ reducer: { chat: chatReducer, config: configReducer, gpu: gpuReducer } })`  
-    - [ ] `frontend/src/store/slices/chatSlice.js`:  
+    - [x] Create new React app under `frontend/` (or update existing)  
+    - [x] Install Redux Toolkit and React-Redux  
+    - [x] `frontend/src/store/store.js`: initialize with `configureStore({ reducer: { chat: chatReducer, config: configReducer, gpu: gpuReducer } })`  
+    - [x] `frontend/src/store/slices/chatSlice.js`:  
       - State: `{ messages: [], status: 'idle', error: null }`  
       - Thunks: `fetchMessages(sessionId)`, `sendMessage({ sessionId, content, thinkingMode })`  
       - Reducers for pending/fulfilled/rejected  
-    - [ ] `frontend/src/store/slices/configSlice.js`:  
+    - [x] `frontend/src/store/slices/configSlice.js`:  
       - State: `{ modelList: [], currentModel: '', thinkingMode: 'hybrid', topK: 5, embedLight: '', embedDeep: '', idleThreshold: 600 }`  
       - Thunks: `fetchModels()`, `fetchConfig(sessionId)`, `updateConfig(sessionId, values)`  
-    - [ ] `frontend/src/store/slices/gpuSlice.js`:  
+    - [x] `frontend/src/store/slices/gpuSlice.js`:  
       - State: `{ isIndexing: false, gpuUtil: 0 }`  
       - Thunk: `pollGpuStatus()` calling `/api/embeddings/status`  
 
 11. **Frontend API Modules**  
-    - [ ] `frontend/src/api/chatApi.js`: functions `getMessages(sessionId)`, `postMessage(sessionId, { content, thinking_mode })`  
-    - [ ] `frontend/src/api/configApi.js`: `getConfig(sessionId)`, `putConfig(sessionId, config)`  
-    - [ ] `frontend/src/api/ragApi.js`: `getModels()`, `getEmbeddingStatus()`, `triggerIndexing()`  
+    - [x] `frontend/src/api/chatApi.js`: functions `getMessages(sessionId)`, `postMessage(sessionId, { content, thinking_mode })`  
+    - [x] `frontend/src/api/configApi.js`: `getConfig(sessionId)`, `putConfig(sessionId, config)`  
+    - [x] `frontend/src/api/ragApi.js`: `getModels()`, `getEmbeddingStatus()`, `triggerIndexing()`  
 
 12. **Chat UI Components**  
     - [ ] `frontend/src/components/Chat/ChatWindow.js`: render `MessageList` and `MessageInput`; connect to `chatSlice`  
