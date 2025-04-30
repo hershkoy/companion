@@ -486,9 +486,9 @@ CREATE TABLE session_config (
     - [x] Pass `currentModel`, `thinkingMode`, `topK` from Redux into `MessageInput` and API calls  
 
 17. **Testing**  
-    - [ ] Write pytest tests in `backend/tests/` for each route: sessions, messages, config, embeddings  
-    - [ ] Mock Chroma and model_manager for `rag_service` unit tests  
-    - [ ] Add React Testing Library tests for critical components: `ChatWindow`, `MessageInput`, `ConfigPanel`  
+    - [x] Write pytest tests in `backend/tests/` for each route: sessions, messages, config, embeddings  
+    - [x] Mock Chroma and model_manager for `rag_service` unit tests  
+    - [x] Add React Testing Library tests for critical components: `ChatWindow`, `MessageInput`, `ConfigPanel`  
 
 18. **Linting & Formatting**  
     - [ ] Add `.eslintrc.js` and `.prettierrc` to `frontend/` following Airbnb or similar style  
