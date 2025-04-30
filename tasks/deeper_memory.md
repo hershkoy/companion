@@ -375,10 +375,10 @@ CREATE TABLE session_config (
    - [x] Add migration stub folder `backend/db/migrations/` for future Alembic scripts.  
 
 2. **Backend Folder & Module Scaffolding**  
-   - [ ] Under `backend/`, create directories: `models/`, `routes/`, `services/`, `tasks/`, `utils/`, `tests/`.  
-   - [ ] Add placeholder `__init__.py` in each folder.  
-   - [ ] Create `backend/app.py` that instantiates Flask app, registers blueprints, and reads `config.py`.  
-   - [ ] Create `backend/config.py` with environment-based settings (DB path, Chroma URL, GPU thresholds).  
+   - [x] Under `backend/`, create directories: `models/`, `routes/`, `services/`, `tasks/`, `utils/`, `tests/`.  
+   - [x] Add placeholder `__init__.py` in each folder.  
+   - [x] Create `backend/app.py` that instantiates Flask app, registers blueprints, and reads `config.py`.  
+   - [x] Create `backend/config.py` with environment-based settings (DB path, Chroma URL, GPU thresholds).  
 
 3. **ORM / Data Models**  
    - [ ] In `backend/models/session.py`, define Pydantic or SQLAlchemy model for `Session` mirroring `sessions` table.  
