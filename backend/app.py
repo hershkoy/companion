@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from faster_whisper import WhisperModel
 from kokoro import KPipeline
-from conversation_store import conversation_store
+from backend.conversation_store import conversation_store
 import tempfile
 import os
 import torch
@@ -20,15 +20,16 @@ import sys
 import asyncio
 from flask_sock import Sock
 import json
-from config import Config
-from services.websocket_service import WebSocketService
-from services.audio_service import AudioService
-from services.ai_service import AIService
+from backend.config import Config
+from backend.services.websocket_service import WebSocketService
+from backend.services.audio_service import AudioService
+from backend.services.ai_service import AIService
+from backend.db.init_db import create_tables
 
 # Import route blueprints
-from routes.config import bp as config_bp
-from routes.messages import bp as messages_bp
-from routes.sessions import bp as sessions_bp
+from backend.routes.config import bp as config_bp
+from backend.routes.messages import bp as messages_bp
+from backend.routes.sessions import bp as sessions_bp
 
 # Configure logging
 def setup_logger():
@@ -85,7 +86,6 @@ def create_app(config_class=Config):
     app.config.from_object(config_class)
     
     # Initialize extensions
-    from db.init_db import create_tables
     create_tables(app.config['DATABASE_PATH'])
     
     # Initialize models

@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from ..models.session_config import SessionConfig
+from backend.models.session_config import SessionConfig
 
 bp = Blueprint('config', __name__, url_prefix='/api')
 

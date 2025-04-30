@@ -1,7 +1,7 @@
 from datetime import datetime
 from flask import Blueprint, jsonify, request
-from ..models.message import Message
-from ..models.session_config import SessionConfig
+from backend.models.message import Message
+from backend.models.session_config import SessionConfig
 
 # Add url_prefix to match other routes
 bp = Blueprint('messages', __name__, url_prefix='/api')

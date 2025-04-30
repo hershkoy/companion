@@ -2,7 +2,7 @@ from typing import Dict, List, Optional
 import logging
 from datetime import datetime
 import os
-from database import db
+from backend.database import db
 
 logger = logging.getLogger('kokoro')
 
