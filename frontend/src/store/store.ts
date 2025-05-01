@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import chatReducer from './slices/chatSlice';
 import configReducer from './slices/configSlice';
 import gpuReducer from './slices/gpuSlice';
-import { RootState } from '../types/store';
+import type { RootState } from '../types/store';
 
 export const store = configureStore({
   reducer: {
@@ -24,3 +24,4 @@ export const store = configureStore({
 });
 
 export type AppDispatch = typeof store.dispatch;
+export type { RootState };

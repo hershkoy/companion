@@ -10,6 +10,15 @@ interface ModelsResponse {
   success: boolean;
 }
 
+interface ConfigResponse {
+  model_name?: string;
+  thinking_mode?: string;
+  top_k?: number;
+  embed_light?: string;
+  embed_deep?: string;
+  idle_threshold?: number;
+}
+
 const initialState: ConfigState = {
   modelList: [],
   currentModel: '',
@@ -32,11 +41,11 @@ export const fetchModels = createAsyncThunk<ModelsResponse>('config/fetchModels'
   }
 });
 
-export const fetchConfig = createAsyncThunk<ConfigState, string>(
+export const fetchConfig = createAsyncThunk<ConfigResponse, string>(
   'config/fetchConfig',
   async (sessionId: string) => {
     try {
-      const response = await apiClient.get<ConfigState>(`/sessions/${sessionId}/config`);
+      const response = await apiClient.get<ConfigResponse>(`/sessions/${sessionId}/config`);
       return response.data;
     } catch (error) {
       console.error('Error fetching config:', error);
@@ -90,7 +99,16 @@ const configSlice = createSlice({
         state.status = 'loading';
       })
       .addCase(fetchConfig.fulfilled, (state, action) => {
-        return { ...state, ...action.payload, status: 'succeeded', error: null };
+        state.status = 'succeeded';
+        state.error = null;
+        
+        // Only update specific fields from the config response
+        if (action.payload.model_name) state.currentModel = action.payload.model_name;
+        if (action.payload.thinking_mode) state.thinkingMode = action.payload.thinking_mode;
+        if (action.payload.top_k) state.topK = action.payload.top_k;
+        if (action.payload.embed_light) state.embedLight = action.payload.embed_light;
+        if (action.payload.embed_deep) state.embedDeep = action.payload.embed_deep;
+        if (action.payload.idle_threshold) state.idleThreshold = action.payload.idle_threshold;
       })
       .addCase(fetchConfig.rejected, (state, action) => {
         state.status = 'failed';

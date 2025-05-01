@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
-import { AppDispatch } from '../store/store';
+import { useDispatch, useSelector } from 'react-redux';
+import type { AppDispatch } from '../store/store';
+import type { RootState } from '../types/store';
 import ChatWindow from '../components/Chat/ChatWindow';
 import ModelSelector from '../components/Chat/ModelSelector';
 import IndexingIndicator from '../components/Chat/IndexingIndicator';
@@ -17,33 +18,49 @@ function ChatPage(): React.ReactElement {
   const { sessionId } = useParams<'sessionId'>();
   const dispatch = useDispatch<AppDispatch>();
   const [error, setError] = useState<string | null>(null);
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const { modelList } = useSelector((state: RootState) => state.config);
 
   // Start GPU status polling
   useGpuStatus();
 
   useEffect(() => {
-    if (sessionId) {
+    if (sessionId && !hasInitialized) {
       // Fetch initial data
       const loadData = async () => {
         try {
-          await Promise.all([
-            dispatch(fetchModels()).unwrap(),
-            dispatch(fetchConfig(sessionId)).unwrap(),
-          ]);
+          // Fetch config first
+          await dispatch(fetchConfig(sessionId)).unwrap();
+          
+          // Only fetch models if we don't have any
+          if (modelList.length === 0) {
+            await dispatch(fetchModels()).unwrap();
+          }
+          
+          setHasInitialized(true);
         } catch (err) {
-          setError((err as Error).message || 'Failed to load chat data');
+          const errorMessage = (err as Error).message || 'Failed to load chat data';
+          console.error('Error loading data:', errorMessage);
+          setError(errorMessage);
         }
       };
       loadData();
     }
-  }, [dispatch, sessionId]);
+  }, [dispatch, sessionId, hasInitialized, modelList.length]);
 
   if (error) {
     return (
       <div className="error-container">
         <div className="error-message">
           {error}
-          <button type="button" onClick={() => window.location.reload()} className="retry-button">
+          <button 
+            type="button" 
+            onClick={() => {
+              setError(null);
+              setHasInitialized(false);
+            }} 
+            className="retry-button"
+          >
             Retry
           </button>
         </div>
