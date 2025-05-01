@@ -7,8 +7,8 @@ export const API_BASE_URL = isDevelopment
   : '/api';
 
 export const WS_BASE_URL = isDevelopment
-  ? 'ws://localhost:5000/ws'
-  : '/ws';
+  ? 'ws://localhost:5000/backend/ws'
+  : '/backend/ws';
 
 console.log('Environment:', process.env.NODE_ENV);
 console.log('API Base URL:', API_BASE_URL);

@@ -1,7 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { GPUState } from '../../types/store';
 import { apiClient } from '../../api/config';
-import wsManager from '../../utils/websocket';
+import { WebSocketEvent, WebSocketMessage } from '../../utils/websocketManager';
+import { wsManager } from '../../utils/websocketInstance';
 
 interface GPUStatusResponse {
   is_indexing: boolean;
@@ -101,8 +102,8 @@ const gpuSlice = createSlice({
 
 // Setup WebSocket listener for GPU status updates
 export function setupGpuStatusListener(dispatch: (action: any) => void): () => void {
-  const handleWebSocketMessage = (_: any, data?: { type: string; payload: any }) => {
-    if (data?.type === 'gpu_status_update') {
+  const handleWebSocketMessage = (_: WebSocketEvent, data?: WebSocketMessage) => {
+    if (data?.type === 'gpu_status_update' && data.payload) {
       const gpuStatus = data.payload as GPUStatusResponse;
       dispatch(updateGpuStatus(gpuStatus));
     }

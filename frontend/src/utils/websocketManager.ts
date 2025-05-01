@@ -16,7 +16,7 @@ export interface WebSocketMessage {
 export type WebSocketListener = (event: WebSocketEvent, data?: WebSocketMessage) => void;
 
 // WebSocket manager class
-class WebSocketManager {
+export class WebSocketManager {
   private ws: WebSocket | null = null;
   private isConnecting = false;
   private listeners = new Set<WebSocketListener>();
@@ -25,17 +25,6 @@ class WebSocketManager {
   private readonly maxReconnectAttempts = 10;
   private readonly baseReconnectDelay = 1000; // Start with 1 second
   private readonly maxReconnectDelay = 30000; // Max 30 seconds
-
-  private getReconnectDelay(): number {
-    // Exponential backoff with jitter
-    const exponentialDelay = Math.min(
-      this.maxReconnectDelay,
-      this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts)
-    );
-    // Add random jitter ±20%
-    const jitter = exponentialDelay * 0.2 * (Math.random() * 2 - 1);
-    return exponentialDelay + jitter;
-  }
 
   connect(): void {
     if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) {
@@ -164,13 +153,18 @@ class WebSocketManager {
     });
   }
 
+  private getReconnectDelay(): number {
+    // Exponential backoff with jitter
+    const exponentialDelay = Math.min(
+      this.maxReconnectDelay,
+      this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts)
+    );
+    // Add random jitter ±20%
+    const jitter = exponentialDelay * 0.2 * (Math.random() * 2 - 1);
+    return exponentialDelay + jitter;
+  }
+
   isConnected(): boolean {
     return this.ws?.readyState === WebSocket.OPEN;
   }
-}
-
-// Create and export singleton instance
-export let wsManager: WebSocketManager;
-
-// Initialize singleton
-wsManager = new WebSocketManager();
+} 
