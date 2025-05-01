@@ -1,11 +1,10 @@
 import axios from 'axios';
+import { API_BASE_URL } from './config';
 import {
   GetModelsResponse,
   GetEmbeddingStatusResponse,
   TriggerIndexingResponse,
 } from '../types/api';
-
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
 
 /**
  * Fetches available models from the API

@@ -30,6 +30,7 @@ from backend.db.init_db import create_tables
 from backend.routes.config import bp as config_bp
 from backend.routes.messages import bp as messages_bp
 from backend.routes.sessions import bp as sessions_bp
+from backend.routes.embeddings import bp as embeddings_bp
 
 # Configure logging
 def setup_logger():
@@ -118,6 +119,7 @@ def create_app(config_class=Config):
     app.register_blueprint(config_bp)
     app.register_blueprint(messages_bp)
     app.register_blueprint(sessions_bp)
+    app.register_blueprint(embeddings_bp)
     logger.info("Blueprints registered successfully!")
     
     # Log registered routes

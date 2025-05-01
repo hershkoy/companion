@@ -1,11 +1,10 @@
 import axios from 'axios';
+import { API_BASE_URL } from './config';
 import {
   ApiConfig,
   GetConfigResponse,
   PutConfigResponse,
 } from '../types/api';
-
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
 
 /**
  * Fetches the configuration for a given session
