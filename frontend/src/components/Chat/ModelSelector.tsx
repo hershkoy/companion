@@ -1,23 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
-import { fetchModels, updateConfig } from '../../store/slices/configSlice';
+import { updateConfig, resetInitialization } from '../../store/slices/configSlice';
 import { ModelConfig } from '../../types/chat';
 import './ModelSelector.css';
 
 function ModelSelector(): React.ReactElement {
   const dispatch = useAppDispatch();
   const { modelList, currentModel, status } = useAppSelector(state => state.config);
-  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
-
-  useEffect(() => {
-    // Only fetch models once if we don't have any
-    if (modelList.length === 0 && !hasAttemptedFetch) {
-      setHasAttemptedFetch(true);
-      dispatch(fetchModels()).catch(err => {
-        console.error('Error fetching models:', err);
-      });
-    }
-  }, [dispatch, modelList.length, hasAttemptedFetch]);
 
   function handleModelChange(e: React.ChangeEvent<HTMLSelectElement>): void {
     dispatch(updateConfig({ model_name: e.target.value }));
@@ -48,9 +37,7 @@ function ModelSelector(): React.ReactElement {
         Failed to load models
         <button 
           type="button" 
-          onClick={() => {
-            setHasAttemptedFetch(false);
-          }}
+          onClick={() => dispatch(resetInitialization())}
           className="retry-button"
         >
           Retry

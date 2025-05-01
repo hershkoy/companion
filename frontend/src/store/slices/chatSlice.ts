@@ -2,13 +2,14 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { ChatState } from '../../types/store';
 import { Message } from '../../types/chat';
 import { apiClient } from '../../api/config';
-import axios from 'axios';
+import type { AxiosRequestConfig } from 'axios';
 
 const initialState: ChatState = {
   messages: [],
   status: 'idle',
   error: null,
   currentSessionId: null,
+  currentRequest: null
 };
 
 // Define error handling type
@@ -28,14 +29,27 @@ interface ErrorResponse {
 export const fetchMessages = createAsyncThunk<
   Message[],
   string,
-  { rejectValue: ApiError }
->('chat/fetchMessages', async (sessionId: string, { rejectWithValue }) => {
+  { rejectValue: ApiError; state: { chat: ChatState } }
+>('chat/fetchMessages', async (sessionId: string, { rejectWithValue, signal, getState }) => {
   try {
-    console.log('Fetching messages for session:', sessionId);
-    const response = await apiClient.get<Message[]>(`/sessions/${sessionId}/messages`);
-    console.log('Response:', response);
+    // Cancel previous request if it exists
+    const state = getState();
+    if (state.chat.currentRequest) {
+      state.chat.currentRequest.abort();
+    }
+
+    // Create new AbortController
+    const controller = new AbortController();
+    state.chat.currentRequest = controller;
+
+    const config = { signal: controller.signal } as unknown as AxiosRequestConfig;
+    const response = await apiClient.get<Message[]>(`/sessions/${sessionId}/messages`, config);
+
     return response.data;
   } catch (error) {
+    if (error instanceof Error && error.name === 'CanceledError') {
+      throw error;
+    }
     const axiosError = error as { response?: ErrorResponse };
     return rejectWithValue({
       message: axiosError.response?.data?.message || 'Failed to fetch messages',
@@ -56,12 +70,10 @@ export const sendMessage = createAsyncThunk<
   { rejectValue: ApiError }
 >('chat/sendMessage', async ({ sessionId, content, thinkingMode }, { rejectWithValue }) => {
   try {
-    console.log('Sending message:', { sessionId, content, thinkingMode });
     const response = await apiClient.post<Message>(`/sessions/${sessionId}/messages`, {
       content,
       thinking_mode: thinkingMode,
     });
-    console.log('Response:', response);
     return response.data;
   } catch (error) {
     const axiosError = error as { response?: ErrorResponse };
@@ -80,6 +92,10 @@ const chatSlice = createSlice({
       state.messages = [];
       state.status = 'idle';
       state.error = null;
+      if (state.currentRequest) {
+        state.currentRequest.abort();
+        state.currentRequest = null;
+      }
     },
     setCurrentSession: (state, action: PayloadAction<string>) => {
       state.currentSessionId = action.payload;
@@ -95,10 +111,15 @@ const chatSlice = createSlice({
         state.status = 'succeeded';
         state.messages = action.payload;
         state.error = null;
+        state.currentRequest = null;
       })
       .addCase(fetchMessages.rejected, (state, action) => {
+        if (action.error.name === 'CanceledError') {
+          return;
+        }
         state.status = 'failed';
         state.error = action.payload?.message || action.error.message || 'Failed to fetch messages';
+        state.currentRequest = null;
       })
       .addCase(sendMessage.pending, (state) => {
         state.status = 'loading';

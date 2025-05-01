@@ -14,6 +14,14 @@ export interface ChatSession {
   messages: Message[];
 }
 
+export interface ChatState {
+  messages: Message[];
+  status: 'idle' | 'loading' | 'succeeded' | 'failed';
+  error: string | null;
+  currentSessionId: string | null;
+  currentRequest: AbortController | null;
+}
+
 export interface ModelConfig {
   name: string;
   id: string;

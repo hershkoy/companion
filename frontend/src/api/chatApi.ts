@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { AxiosRequestConfig } from 'axios';
 import { API_BASE_URL } from './config';
 import {
   GetMessagesResponse,
@@ -9,15 +10,24 @@ import {
 /**
  * Fetches all messages for a given session
  * @param sessionId - The ID of the chat session
+ * @param signal - Optional AbortController signal for request cancellation
  * @returns Promise with the messages response
  */
-export const getMessages = async (sessionId: string): Promise<GetMessagesResponse> => {
+export const getMessages = async (
+  sessionId: string,
+  signal?: AbortSignal
+): Promise<GetMessagesResponse> => {
   try {
+    const config = { signal } as unknown as AxiosRequestConfig;
     const response = await axios.get<GetMessagesResponse>(
-      `${API_BASE_URL}/sessions/${sessionId}/messages`
+      `${API_BASE_URL}/sessions/${sessionId}/messages`,
+      config
     );
     return response.data;
   } catch (error) {
+    if (error instanceof Error && error.name === 'CanceledError') {
+      throw error;
+    }
     console.error('Error fetching messages:', error);
     throw error;
   }
@@ -27,19 +37,26 @@ export const getMessages = async (sessionId: string): Promise<GetMessagesRespons
  * Posts a new message to a chat session
  * @param sessionId - The ID of the chat session
  * @param messageData - The message data to send
+ * @param signal - Optional AbortController signal for request cancellation
  * @returns Promise with the message response
  */
 export const postMessage = async (
   sessionId: string,
-  messageData: PostMessageRequest
+  messageData: PostMessageRequest,
+  signal?: AbortSignal
 ): Promise<PostMessageResponse> => {
   try {
+    const config = { signal } as unknown as AxiosRequestConfig;
     const response = await axios.post<PostMessageResponse>(
       `${API_BASE_URL}/sessions/${sessionId}/messages`,
-      messageData
+      messageData,
+      config
     );
     return response.data;
   } catch (error) {
+    if (error instanceof Error && error.name === 'CanceledError') {
+      throw error;
+    }
     console.error('Error posting message:', error);
     throw error;
   }

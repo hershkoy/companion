@@ -6,6 +6,7 @@ export interface ChatState {
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
   error: string | null;
   currentSessionId: string | null;
+  currentRequest: AbortController | null;
 }
 
 export interface ConfigState {
@@ -18,6 +19,8 @@ export interface ConfigState {
   idleThreshold: number;
   status: string;
   error: string | null;
+  isInitialized: boolean;
+  currentRequest: AbortController | null;
 }
 
 export interface GPUState {

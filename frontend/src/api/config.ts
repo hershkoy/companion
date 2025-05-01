@@ -2,13 +2,8 @@ import axios from 'axios';
 
 // API base URL configuration
 const isDevelopment = process.env.NODE_ENV === 'development';
-export const API_BASE_URL = isDevelopment 
-  ? 'http://localhost:5000/api'
-  : '/api';
-
-export const WS_BASE_URL = isDevelopment
-  ? 'ws://localhost:5000/backend/ws'
-  : '/backend/ws';
+export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
+export const WS_BASE_URL = process.env.REACT_APP_WS_BASE_URL || 'ws://localhost:5000/ws';
 
 console.log('Environment:', process.env.NODE_ENV);
 console.log('API Base URL:', API_BASE_URL);
