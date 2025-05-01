@@ -1,32 +1,46 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 
 bp = Blueprint('embeddings', __name__, url_prefix='/api/embeddings')
-
-# Mock state (replace with proper state management)
-indexing_state = {
-    'is_indexing': False,
-    'gpu_utilization': 0.0
-}
 
 @bp.route('/status', methods=['GET'])
 def get_status():
     """Get current indexing status and GPU utilization."""
-    # TODO: Get real GPU utilization from gpu_monitor service
-    # TODO: Get real indexing status from scheduler service
-    return jsonify(indexing_state)
+    gpu_monitor = current_app.gpu_monitor
+    metrics = gpu_monitor.get_metrics()
+    
+    return jsonify({
+        'is_indexing': gpu_monitor._is_indexing,
+        'gpu_utilization': metrics['utilization'],
+        'gpu_available': metrics['gpu_available']
+    })
 
 @bp.route('/index', methods=['POST'])
 def trigger_indexing():
     """Manually trigger document indexing."""
-    if indexing_state['is_indexing']:
+    gpu_monitor = current_app.gpu_monitor
+    metrics = gpu_monitor.get_metrics()
+    
+    if not metrics['gpu_available']:
+        return jsonify({
+            'error': 'GPU monitoring not available'
+        }), 503
+    
+    if gpu_monitor._is_indexing:
         return jsonify({
             'error': 'Indexing already in progress'
         }), 409
     
+    # Set indexing status to true
+    gpu_monitor.set_indexing_status(True)
+    
     # TODO: Call scheduler service to start indexing
-    indexing_state['is_indexing'] = True
+    # When indexing is complete, call gpu_monitor.set_indexing_status(False)
     
     return jsonify({
         'message': 'Indexing started',
-        'status': indexing_state
+        'status': {
+            'is_indexing': True,
+            'gpu_utilization': gpu_monitor.get_utilization(),
+            'gpu_available': metrics['gpu_available']
+        }
     }) 

@@ -1,13 +1,19 @@
 import logging
 import time
 from typing import Optional, Dict
-import pynvml
+try:
+    import pynvml
+    NVIDIA_AVAILABLE = True
+except ImportError:
+    NVIDIA_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("pynvml not available. GPU monitoring will be limited.")
 from threading import Thread, Lock
 
 logger = logging.getLogger(__name__)
 
 class GPUMonitor:
-    def __init__(self, poll_interval: float = 10.0):
+    def __init__(self, websocket_service=None, poll_interval: float = 1.0):
         self._poll_interval = poll_interval
         self._utilization = 0.0
         self._memory_used = 0
@@ -15,14 +21,19 @@ class GPUMonitor:
         self._lock = Lock()
         self._running = False
         self._monitor_thread: Optional[Thread] = None
+        self._websocket_service = websocket_service
+        self._is_indexing = False
+        self._device_count = 0
         
-        try:
-            pynvml.nvmlInit()
-            self._device_count = pynvml.nvmlDeviceGetCount()
-            logger.info(f"Initialized GPU monitoring. Found {self._device_count} device(s)")
-        except pynvml.NVMLError as e:
-            logger.warning(f"Could not initialize NVML: {str(e)}")
-            self._device_count = 0
+        if NVIDIA_AVAILABLE:
+            try:
+                pynvml.nvmlInit()
+                self._device_count = pynvml.nvmlDeviceGetCount()
+                logger.info(f"Initialized GPU monitoring. Found {self._device_count} device(s)")
+            except Exception as e:
+                logger.warning(f"Could not initialize NVML: {str(e)}")
+        else:
+            logger.info("NVIDIA GPU monitoring not available. Running in limited mode.")
 
     def start(self) -> None:
         """Start the GPU monitoring thread."""
@@ -42,18 +53,32 @@ class GPUMonitor:
             self._monitor_thread = None
         logger.info("GPU monitoring stopped")
 
+    def set_indexing_status(self, is_indexing: bool) -> None:
+        """Set the current indexing status."""
+        self._is_indexing = is_indexing
+        self._broadcast_status()
+
     def _monitor_loop(self) -> None:
         """Main monitoring loop."""
         while self._running:
             try:
                 self._update_metrics()
+                self._broadcast_status()
             except Exception as e:
                 logger.error(f"Error updating GPU metrics: {str(e)}")
             time.sleep(self._poll_interval)
 
+    def _broadcast_status(self) -> None:
+        """Broadcast current GPU status via WebSocket."""
+        if self._websocket_service:
+            self._websocket_service.broadcast_gpu_status(
+                is_indexing=self._is_indexing,
+                gpu_utilization=self._utilization
+            )
+
     def _update_metrics(self) -> None:
         """Update GPU metrics."""
-        if self._device_count == 0:
+        if not NVIDIA_AVAILABLE or self._device_count == 0:
             return
 
         try:
@@ -75,7 +100,7 @@ class GPUMonitor:
                 self._memory_used = mem_used
                 self._memory_total = mem_total
 
-        except pynvml.NVMLError as e:
+        except Exception as e:
             logger.error(f"Error getting GPU metrics: {str(e)}")
 
     def get_metrics(self) -> Dict[str, float]:
@@ -85,7 +110,8 @@ class GPUMonitor:
                 'utilization': self._utilization,
                 'memory_used_mb': self._memory_used / (1024 * 1024),
                 'memory_total_mb': self._memory_total / (1024 * 1024),
-                'memory_used_pct': (self._memory_used / self._memory_total * 100) if self._memory_total else 0
+                'memory_used_pct': (self._memory_used / self._memory_total * 100) if self._memory_total else 0,
+                'gpu_available': NVIDIA_AVAILABLE and self._device_count > 0
             }
 
     def get_utilization(self) -> float:
@@ -96,7 +122,8 @@ class GPUMonitor:
     def __del__(self):
         """Cleanup on deletion."""
         self.stop()
-        try:
-            pynvml.nvmlShutdown()
-        except:
-            pass 
+        if NVIDIA_AVAILABLE:
+            try:
+                pynvml.nvmlShutdown()
+            except:
+                pass 

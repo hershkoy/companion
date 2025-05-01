@@ -1,16 +1,19 @@
-import { useCallback } from 'react';
+import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
-import { pollGpuStatus } from '../store/slices/gpuSlice';
-import usePolling from './usePolling';
+import { setupGpuStatusListener } from '../store/slices/gpuSlice';
 
 const useGpuStatus = (enabled = true) => {
   const dispatch = useDispatch();
 
-  const checkGpuStatus = useCallback(() => {
-    dispatch(pollGpuStatus());
-  }, [dispatch]);
+  useEffect(() => {
+    if (!enabled) return;
 
-  usePolling(checkGpuStatus, 10000, enabled); // Poll every 10 seconds
+    // Setup WebSocket listener and get cleanup function
+    const cleanup = setupGpuStatusListener(dispatch);
+
+    // Cleanup when component unmounts or enabled changes
+    return cleanup;
+  }, [dispatch, enabled]);
 };
 
 export default useGpuStatus;

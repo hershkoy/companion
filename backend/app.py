@@ -24,6 +24,7 @@ from backend.config import Config
 from backend.services.websocket_service import WebSocketService
 from backend.services.audio_service import AudioService
 from backend.services.ai_service import AIService
+from backend.services.gpu_monitor import GPUMonitor
 from backend.db.init_db import create_tables
 
 # Import route blueprints
@@ -113,6 +114,13 @@ def create_app(config_class=Config):
     websocket_service = WebSocketService(app)  # This will set up the WebSocket routes
     ai_service = AIService(conversation_store)
     audio_service = AudioService(whisper_model, kokoro_pipeline)
+
+    # Initialize GPU monitor with WebSocket service
+    gpu_monitor = GPUMonitor(websocket_service=websocket_service, poll_interval=1.0)
+    gpu_monitor.start()
+
+    # Store GPU monitor in app context for access in routes
+    app.gpu_monitor = gpu_monitor
 
     # Register blueprints
     logger.info("Registering blueprints...")

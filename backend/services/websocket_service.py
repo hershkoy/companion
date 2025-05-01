@@ -42,13 +42,33 @@ class WebSocketService:
             'title': title
         })
         
-        logger.info(f"Broadcasting title update: {message}")
+        self._broadcast_message(message)
+
+    def broadcast_gpu_status(self, is_indexing: bool, gpu_utilization: float) -> None:
+        """Broadcast GPU status update to all connected clients"""
+        if not self.ws_connections:
+            logger.warning("No WebSocket connections available for broadcasting")
+            return
+            
+        message = json.dumps({
+            'type': 'gpu_status_update',
+            'payload': {
+                'is_indexing': is_indexing,
+                'gpu_utilization': gpu_utilization
+            }
+        })
+        
+        self._broadcast_message(message)
+
+    def _broadcast_message(self, message: str) -> None:
+        """Helper method to broadcast a message to all connected clients"""
+        logger.info(f"Broadcasting message: {message}")
         dead_connections = set()
         
         for ws in self.ws_connections:
             try:
                 ws.send(message)
-                logger.debug(f"Title update sent successfully to a client")
+                logger.debug(f"Message sent successfully to a client")
             except Exception as e:
                 logger.error(f"Error sending WebSocket message: {str(e)}")
                 dead_connections.add(ws)

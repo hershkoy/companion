@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { GPUState } from '../../types/store';
 import { apiClient } from '../../api/config';
+import wsManager from '../../utils/websocket';
 
 interface GPUStatusResponse {
   is_indexing: boolean;
@@ -26,24 +27,16 @@ interface ErrorResponse {
   status?: number;
 }
 
-// Async thunks
-export const pollGpuStatus = createAsyncThunk<
-  GPUStatusResponse,
-  void,
-  { rejectValue: ApiError }
->('gpu/pollStatus', async (_, { rejectWithValue }) => {
-  try {
-    const response = await apiClient.get<GPUStatusResponse>('/embeddings/status');
-    return response.data;
-  } catch (error) {
-    const axiosError = error as { response?: ErrorResponse };
-    return rejectWithValue({
-      message: axiosError.response?.data?.message || 'Failed to fetch GPU status',
-      status: axiosError.response?.status
-    });
-  }
-});
+// WebSocket message type for GPU status
+interface GPUStatusMessage {
+  type: 'gpu_status_update';
+  payload: {
+    is_indexing: boolean;
+    gpu_utilization: number;
+  };
+}
 
+// Async thunk for triggering indexing
 export const triggerIndexing = createAsyncThunk<
   IndexingResponse,
   void,
@@ -77,24 +70,19 @@ const gpuSlice = createSlice({
     resetError: (state) => {
       state.error = null;
     },
+    updateGpuStatus: (state, action: PayloadAction<GPUStatusResponse>) => {
+      state.isIndexing = action.payload.is_indexing;
+      state.gpuUtil = action.payload.gpu_utilization;
+      state.error = null;
+      if (action.payload.is_indexing && !state.lastIndexingStart) {
+        state.lastIndexingStart = new Date().toISOString();
+      } else if (!action.payload.is_indexing) {
+        state.lastIndexingStart = null;
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
-      // Poll status cases
-      .addCase(pollGpuStatus.pending, (state) => {
-        state.status = 'loading';
-      })
-      .addCase(pollGpuStatus.fulfilled, (state, action: PayloadAction<GPUStatusResponse>) => {
-        state.status = 'succeeded';
-        state.isIndexing = action.payload.is_indexing;
-        state.gpuUtil = action.payload.gpu_utilization;
-        state.error = null;
-      })
-      .addCase(pollGpuStatus.rejected, (state, action) => {
-        state.status = 'failed';
-        state.error = action.payload?.message || action.error.message || 'Failed to fetch GPU status';
-      })
-      // Trigger indexing cases
       .addCase(triggerIndexing.pending, (state) => {
         state.status = 'loading';
       })
@@ -111,5 +99,18 @@ const gpuSlice = createSlice({
   },
 });
 
-export const { resetError } = gpuSlice.actions;
+// Setup WebSocket listener for GPU status updates
+export function setupGpuStatusListener(dispatch: (action: any) => void): () => void {
+  const handleWebSocketMessage = (_: any, data?: { type: string; payload: any }) => {
+    if (data?.type === 'gpu_status_update') {
+      const gpuStatus = data.payload as GPUStatusResponse;
+      dispatch(updateGpuStatus(gpuStatus));
+    }
+  };
+
+  wsManager.addListener(handleWebSocketMessage);
+  return () => wsManager.removeListener(handleWebSocketMessage);
+}
+
+export const { resetError, updateGpuStatus } = gpuSlice.actions;
 export default gpuSlice.reducer;
