@@ -1,23 +1,79 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAppDispatch } from '../../hooks/redux';
 import { sendAudioMessage } from '../../store/slices/chatSlice';
 import './AudioRecorder.css';
+
+const MIME_TYPE = 'audio/webm;codecs=opus';
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000;
 
 interface AudioRecorderProps {
   sessionId: string;
 }
 
-const AudioRecorder: React.FC<AudioRecorderProps> = ({ sessionId }) => {
+interface ApiError {
+  message: string;
+  status?: number;
+}
+
+export function AudioRecorder({ sessionId }: AudioRecorderProps): JSX.Element {
   const dispatch = useAppDispatch();
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const chunksRef = useRef<Array<Blob>>([]);
+  const retryCountRef = useRef(0);
 
-  const startRecording = async () => {
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current && isRecording) {
+        const tracks = mediaRecorderRef.current.stream.getTracks();
+        tracks.forEach(track => track.stop());
+        chunksRef.current = [];
+      }
+    };
+  }, [isRecording]);
+
+  async function sendAudioWithRetry(formData: FormData): Promise<void> {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      setError(null);
+      const result = await dispatch(sendAudioMessage(formData)).unwrap();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to process audio');
+      }
+      retryCountRef.current = 0; // Reset retry count on success
+    } catch (err) {
+      const apiError = err as ApiError;
+      console.error('Failed to send audio:', apiError);
+      
+      if (retryCountRef.current < MAX_RETRIES) {
+        retryCountRef.current++;
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+        await sendAudioWithRetry(formData);
+      } else {
+        setError(apiError.message || 'Failed to send audio after multiple attempts');
+        retryCountRef.current = 0;
+      }
+    }
+  }
+
+  async function startRecording(): Promise<void> {
+    try {
+      setError(null);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          sampleRate: 16000,
+          sampleSize: 16,
+        }
+      });
+      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MIME_TYPE
+      });
+      
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
@@ -28,39 +84,43 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ sessionId }) => {
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        const formData = new FormData();
-        formData.append('audio', audioBlob);
-        formData.append('sessionId', sessionId);
-
         try {
-          await dispatch(sendAudioMessage(formData)).unwrap();
-        } catch (error) {
-          console.error('Failed to send audio:', error);
-        }
+          const audioBlob = new Blob(chunksRef.current, { type: MIME_TYPE });
+          if (audioBlob.size === 0) {
+            throw new Error('No audio data recorded');
+          }
+          
+          const formData = new FormData();
+          formData.append('audio', audioBlob, 'recording.webm');
+          formData.append('sessionId', sessionId);
 
-        // Clean up
-        stream.getTracks().forEach(track => track.stop());
-        chunksRef.current = [];
+          await sendAudioWithRetry(formData);
+        } finally {
+          // Clean up
+          stream.getTracks().forEach(track => track.stop());
+          chunksRef.current = [];
+        }
       };
 
       mediaRecorder.start();
       setIsRecording(true);
       setIsPaused(false);
-    } catch (error) {
+    } catch (err) {
+      const error = err as Error;
       console.error('Error accessing microphone:', error);
+      setError(error.message || 'Failed to access microphone');
     }
-  };
+  }
 
-  const stopRecording = () => {
+  function stopRecording(): void {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       setIsPaused(false);
     }
-  };
+  }
 
-  const togglePause = () => {
+  function togglePause(): void {
     if (mediaRecorderRef.current && isRecording) {
       if (isPaused) {
         mediaRecorderRef.current.resume();
@@ -69,19 +129,21 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ sessionId }) => {
       }
       setIsPaused(!isPaused);
     }
-  };
+  }
 
-  const cancelRecording = () => {
+  function cancelRecording(): void {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
       setIsRecording(false);
       setIsPaused(false);
       chunksRef.current = [];
+      setError(null);
     }
-  };
+  }
 
   return (
     <div className="audio-recorder">
+      {error && <div className="error-message">{error}</div>}
       {!isRecording ? (
         <button
           className="record-button"
@@ -117,6 +179,4 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ sessionId }) => {
       )}
     </div>
   );
-};
-
-export default AudioRecorder; 
+} 

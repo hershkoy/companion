@@ -6,7 +6,7 @@ interface AudioPlayerProps {
   text: string;
 }
 
-const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioData, text }) => {
+export function AudioPlayer({ audioData, text }: AudioPlayerProps): JSX.Element {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -25,14 +25,14 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioData, text }) => {
     }
   }, []);
 
-  const updateProgress = () => {
+  function updateProgress(): void {
     if (audioRef.current) {
       const value = (audioRef.current.currentTime / audioRef.current.duration) * 100;
       setProgress(value);
     }
-  };
+  }
 
-  const togglePlay = () => {
+  function togglePlay(): void {
     if (audioRef.current) {
       if (isPlaying) {
         audioRef.current.pause();
@@ -41,15 +41,15 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioData, text }) => {
       }
       setIsPlaying(!isPlaying);
     }
-  };
+  }
 
-  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  function handleProgressClick(e: React.MouseEvent<HTMLDivElement>): void {
     if (audioRef.current) {
       const progressBar = e.currentTarget;
       const clickPosition = (e.clientX - progressBar.getBoundingClientRect().left) / progressBar.offsetWidth;
       audioRef.current.currentTime = clickPosition * audioRef.current.duration;
     }
-  };
+  }
 
   return (
     <div className="audio-player">
@@ -74,6 +74,4 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioData, text }) => {
       <div className="audio-text">{text}</div>
     </div>
   );
-};
-
-export default AudioPlayer; 
+} 

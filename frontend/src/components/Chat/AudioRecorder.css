@@ -1,7 +1,9 @@
 .audio-recorder {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   margin: 1rem 0;
+  gap: 0.5rem;
 }
 
 .recording-controls {
@@ -73,4 +75,14 @@
   100% {
     transform: scale(1);
   }
+}
+
+.error-message {
+  color: #f44336;
+  font-size: 0.875rem;
+  text-align: center;
+  padding: 0.5rem;
+  background-color: rgba(244, 67, 54, 0.1);
+  border-radius: 0.375rem;
+  margin-bottom: 0.5rem;
 } 

@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { ChatState } from '../../types/store';
 import { Message } from '../../types/chat';
 import { apiClient } from '../../api/config';
-import { api } from '../../api/index';
+import { AudioResponse } from '../../types/api';
 
 const initialState: ChatState = {
   messages: [],
@@ -84,27 +84,23 @@ export const sendMessage = createAsyncThunk<
   }
 });
 
-interface AudioResponse {
-  success: boolean;
-  transcription: string;
-  response: {
-    agentMessage: string;
-    segments: Array<{
-      text: string;
-      audio: string;
-    }>;
-  };
-  language: {
-    detected: string;
-    probability: number;
-  };
-}
-
-export const sendAudioMessage = createAsyncThunk(
+export const sendAudioMessage = createAsyncThunk<AudioResponse, FormData>(
   'chat/sendAudioMessage',
-  async (formData: FormData) => {
-    const response = await api.post<AudioResponse>('/transcribe', formData);
-    return response.data;
+  async (formData: FormData, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post<AudioResponse>('/transcribe', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      const axiosError = error as { response?: ErrorResponse };
+      return rejectWithValue({
+        message: axiosError.response?.data?.message || 'Failed to send audio message',
+        status: axiosError.response?.status
+      });
+    }
   }
 );
 
@@ -163,19 +159,23 @@ const chatSlice = createSlice({
       })
       .addCase(sendAudioMessage.fulfilled, (state, action) => {
         state.status = 'idle';
-        state.messages.push({
-          id: Date.now().toString(),
-          role: 'user',
-          content: action.payload.transcription,
-          timestamp: new Date().toISOString(),
-        });
-        state.messages.push({
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: action.payload.response.agentMessage,
-          timestamp: new Date().toISOString(),
-          audioSegments: action.payload.response.segments,
-        });
+        if (action.payload.transcription) {
+          state.messages.push({
+            id: Date.now().toString(),
+            role: 'user',
+            content: action.payload.transcription,
+            timestamp: new Date().toISOString(),
+          });
+        }
+        if (action.payload.response) {
+          state.messages.push({
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: action.payload.response.agentMessage,
+            timestamp: new Date().toISOString(),
+            audioSegments: action.payload.response.segments,
+          });
+        }
       })
       .addCase(sendAudioMessage.rejected, (state, action) => {
         state.status = 'failed';

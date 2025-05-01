@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppSelector } from '../../hooks/redux';
-import AudioRecorder from './AudioRecorder';
-import AudioPlayer from './AudioPlayer';
+import { AudioRecorder } from './AudioRecorder';
+import { AudioPlayer } from './AudioPlayer';
 import './ChatWindow.css';
 
 interface ChatWindowProps {

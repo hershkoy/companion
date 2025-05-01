@@ -92,4 +92,24 @@ export interface GetEmbeddingStatusResponse extends ApiResponse<EmbeddingStatus>
 /**
  * Response from triggering indexing
  */
-export interface TriggerIndexingResponse extends ApiResponse<{ job_id: string }> {} 
+export interface TriggerIndexingResponse extends ApiResponse<{ job_id: string }> {}
+
+/**
+ * Response from audio transcription and processing
+ */
+export interface AudioResponse {
+  success: boolean;
+  error?: string;
+  transcription?: string;
+  response?: {
+    agentMessage: string;
+    segments: Array<{
+      text: string;
+      audio: string;
+    }>;
+  };
+  language?: {
+    detected: string;
+    probability: number;
+  };
+} 
