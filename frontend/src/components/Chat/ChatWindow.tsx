@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppSelector } from '../../hooks/redux';
-import MessageList from './MessageList';
-import MessageInput from './MessageInput';
+import AudioRecorder from './AudioRecorder';
+import AudioPlayer from './AudioPlayer';
 import './ChatWindow.css';
 
 interface ChatWindowProps {
@@ -9,34 +9,36 @@ interface ChatWindowProps {
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ sessionId }) => {
-  const { messages, status, error } = useAppSelector(state => state.chat);
-
-  if (status === 'loading') {
-    return (
-      <div className="chat-window">
-        <div className="chat-loading">
-          <div className="chat-loading-spinner" />
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="chat-window">
-        <div className="chat-error">
-          <div>
-            <p>Error loading messages: {error}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const { messages, status } = useAppSelector(state => state.chat);
 
   return (
     <div className="chat-window">
-      <MessageList messages={messages} />
-      <MessageInput sessionId={sessionId} />
+      <div className="messages">
+        {messages.map(message => (
+          <div key={message.id} className={`message ${message.role}`}>
+            <div className="message-text">{message.content}</div>
+            {message.role === 'assistant' && message.audioSegments && (
+              <div className="audio-segments">
+                {message.audioSegments.map((segment, index) => (
+                  <AudioPlayer
+                    key={index}
+                    audioData={segment.audio}
+                    text={segment.text}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        {status === 'loading' && (
+          <div className="message system">
+            Processing your message...
+          </div>
+        )}
+      </div>
+      <div className="input-area">
+        <AudioRecorder sessionId={sessionId} />
+      </div>
     </div>
   );
 };

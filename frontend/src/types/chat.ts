@@ -1,8 +1,12 @@
 export interface Message {
   id: string;
+  role: 'user' | 'assistant' | 'system';
   content: string;
-  role: 'user' | 'assistant';
   timestamp: string;
+  audioSegments?: Array<{
+    text: string;
+    audio: string;
+  }>;
 }
 
 export interface ChatSession {

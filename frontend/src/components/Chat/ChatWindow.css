@@ -1,12 +1,72 @@
 .chat-window {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 64px); /* Subtract header height */
-  background-color: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  margin: 1rem;
-  overflow: hidden;
+  height: calc(100vh - 4rem);
+  padding: 1rem;
+  gap: 1rem;
+  background-color: #343541;
+  color: #ececf1;
+}
+
+.messages {
+  flex-grow: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-right: 1rem;
+}
+
+.message {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background-color: #444654;
+  animation: fadeIn 0.3s ease-in;
+}
+
+.message.user {
+  background-color: #343541;
+}
+
+.message.assistant {
+  background-color: #444654;
+}
+
+.message.system {
+  background-color: #565869;
+  font-style: italic;
+}
+
+.message-text {
+  font-size: 1rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  margin-bottom: 0.5rem;
+}
+
+.audio-segments {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.input-area {
+  padding: 1rem;
+  background-color: #444654;
+  border-radius: 0.5rem;
+  margin-top: auto;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .chat-loading {
