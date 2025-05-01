@@ -1,0 +1,67 @@
+.model-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 300px;
+}
+
+.model-selector label {
+  font-weight: 500;
+  color: #333;
+}
+
+.select-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.model-selector select {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: white;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.model-selector select:hover {
+  border-color: #666;
+}
+
+.model-selector select:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+}
+
+.model-selector select.no-models {
+  color: #666;
+  font-style: italic;
+}
+
+.model-details {
+  font-size: 0.8rem;
+  color: #666;
+  padding: 0.25rem 0;
+}
+
+.model-selector.loading,
+.model-selector.error {
+  padding: 0.5rem;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.model-selector.loading {
+  background-color: #f5f5f5;
+  color: #666;
+}
+
+.model-selector.error {
+  background-color: #fff2f2;
+  color: #cc0000;
+} 

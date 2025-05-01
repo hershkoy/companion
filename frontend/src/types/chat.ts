@@ -17,6 +17,14 @@ export interface ChatSession {
 export interface ModelConfig {
   name: string;
   id: string;
+  size?: string;
+  family?: string;
+  quantization?: string;
+  modified?: string;
+  format?: string;
+  parameters?: string;
+  template?: string;
+  context_length?: number;
 }
 
 export interface ThinkingMode {
