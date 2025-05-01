@@ -20,7 +20,6 @@ export interface ConfigState {
   status: string;
   error: string | null;
   isInitialized: boolean;
-  currentRequest: AbortController | null;
 }
 
 export interface GPUState {

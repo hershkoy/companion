@@ -14,7 +14,7 @@ import {
 export const getConfig = async (sessionId: string): Promise<GetConfigResponse> => {
   try {
     const response = await axios.get<GetConfigResponse>(
-      `${API_BASE_URL}/config/${sessionId}`
+      `${API_BASE_URL}/sessions/${sessionId}/config`
     );
     return response.data;
   } catch (error) {
@@ -35,7 +35,7 @@ export const putConfig = async (
 ): Promise<PutConfigResponse> => {
   try {
     const response = await axios.put<PutConfigResponse>(
-      `${API_BASE_URL}/config/${sessionId}`,
+      `${API_BASE_URL}/sessions/${sessionId}/config`,
       config
     );
     return response.data;

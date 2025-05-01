@@ -3,6 +3,10 @@ import { ConfigState } from '../../types/store';
 import { ModelConfig } from '../../types/chat';
 import { apiClient } from '../../api/config';
 
+// Keep track of current requests outside of Redux state
+let currentModelsRequest: AbortController | null = null;
+let currentConfigRequest: AbortController | null = null;
+
 interface ModelsResponse {
   models: Array<ModelConfig>;
   current_model: string;
@@ -38,25 +42,25 @@ const initialState: ConfigState = {
   idleThreshold: 300,
   status: 'idle',
   error: null,
-  isInitialized: false,
-  currentRequest: null
+  isInitialized: false
 };
 
-export const fetchModels = createAsyncThunk<ModelsResponse, void, { state: { config: ConfigState } }>(
+export const fetchModels = createAsyncThunk<ModelsResponse, void>(
   'config/fetchModels',
-  async (_, { signal, getState }) => {
+  async (_, { signal }) => {
     try {
       // Cancel previous request if it exists
-      const state = getState();
-      if (state.config.currentRequest) {
-        state.config.currentRequest.abort();
+      if (currentModelsRequest) {
+        currentModelsRequest.abort();
       }
 
       // Create new AbortController
-      const controller = new AbortController();
-      state.config.currentRequest = controller;
+      currentModelsRequest = new AbortController();
 
-      const response = await apiClient.get<ModelsResponse>('/models', { signal: controller.signal });
+      const response = await apiClient.get<ModelsResponse>('/models', {
+        signal: currentModelsRequest.signal
+      });
+
       return response.data;
     } catch (error) {
       if (error instanceof Error && error.name === 'CanceledError') {
@@ -64,25 +68,28 @@ export const fetchModels = createAsyncThunk<ModelsResponse, void, { state: { con
       }
       console.error('Error fetching models:', error);
       throw error;
+    } finally {
+      currentModelsRequest = null;
     }
   }
 );
 
-export const fetchConfig = createAsyncThunk<UpdateConfigPayload, string, { state: { config: ConfigState } }>(
+export const fetchConfig = createAsyncThunk<UpdateConfigPayload, string>(
   'config/fetchConfig',
-  async (sessionId, { signal, getState }) => {
+  async (sessionId, { signal }) => {
     try {
       // Cancel previous request if it exists
-      const state = getState();
-      if (state.config.currentRequest) {
-        state.config.currentRequest.abort();
+      if (currentConfigRequest) {
+        currentConfigRequest.abort();
       }
 
       // Create new AbortController
-      const controller = new AbortController();
-      state.config.currentRequest = controller;
+      currentConfigRequest = new AbortController();
 
-      const response = await apiClient.get<UpdateConfigPayload>(`/config/${sessionId}`, { signal: controller.signal });
+      const response = await apiClient.get<UpdateConfigPayload>(`/sessions/${sessionId}/config`, {
+        signal: currentConfigRequest.signal
+      });
+
       return response.data;
     } catch (error) {
       if (error instanceof Error && error.name === 'CanceledError') {
@@ -90,6 +97,8 @@ export const fetchConfig = createAsyncThunk<UpdateConfigPayload, string, { state
       }
       console.error('Error fetching config:', error);
       throw error;
+    } finally {
+      currentConfigRequest = null;
     }
   }
 );
@@ -111,9 +120,14 @@ const configSlice = createSlice({
     },
     resetInitialization: (state) => {
       state.isInitialized = false;
-      if (state.currentRequest) {
-        state.currentRequest.abort();
-        state.currentRequest = null;
+      // Abort any pending requests
+      if (currentModelsRequest) {
+        currentModelsRequest.abort();
+        currentModelsRequest = null;
+      }
+      if (currentConfigRequest) {
+        currentConfigRequest.abort();
+        currentConfigRequest = null;
       }
     }
   },
@@ -128,7 +142,6 @@ const configSlice = createSlice({
         if (!state.currentModel && action.payload.models.length > 0) {
           state.currentModel = action.payload.current_model || action.payload.models[0].id;
         }
-        state.currentRequest = null;
       })
       .addCase(fetchModels.rejected, (state, action) => {
         if (action.error.name === 'CanceledError') {
@@ -136,7 +149,6 @@ const configSlice = createSlice({
         }
         state.status = 'failed';
         state.error = action.error.message || 'Failed to fetch models';
-        state.currentRequest = null;
       })
       .addCase(fetchConfig.pending, state => {
         state.status = 'loading';
@@ -145,7 +157,6 @@ const configSlice = createSlice({
         state.status = 'succeeded';
         state.error = null;
         state.isInitialized = true;
-        state.currentRequest = null;
         
         // Only update specific fields from the config response
         if (action.payload.model_name) state.currentModel = action.payload.model_name;
@@ -161,7 +172,6 @@ const configSlice = createSlice({
         }
         state.status = 'failed';
         state.error = action.error.message || 'Failed to fetch config';
-        state.currentRequest = null;
       });
   },
 });
