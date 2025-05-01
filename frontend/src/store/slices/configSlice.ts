@@ -3,6 +3,13 @@ import { ConfigState } from '../../types/store';
 import { ModelConfig } from '../../types/chat';
 import { apiClient } from '../../api/config';
 
+interface ModelsResponse {
+  models: Array<ModelConfig>;
+  current_model: string;
+  service: string;
+  success: boolean;
+}
+
 const initialState: ConfigState = {
   modelList: [],
   currentModel: '',
@@ -15,9 +22,9 @@ const initialState: ConfigState = {
   error: null,
 };
 
-export const fetchModels = createAsyncThunk<ModelConfig[]>('config/fetchModels', async () => {
+export const fetchModels = createAsyncThunk<ModelsResponse>('config/fetchModels', async () => {
   try {
-    const response = await apiClient.get<ModelConfig[]>('/models');
+    const response = await apiClient.get<ModelsResponse>('/models');
     return response.data;
   } catch (error) {
     console.error('Error fetching models:', error);
@@ -70,9 +77,9 @@ const configSlice = createSlice({
       })
       .addCase(fetchModels.fulfilled, (state, action) => {
         state.status = 'succeeded';
-        state.modelList = action.payload;
-        if (!state.currentModel && action.payload.length > 0) {
-          state.currentModel = action.payload[0].id;
+        state.modelList = action.payload.models;
+        if (!state.currentModel && action.payload.models.length > 0) {
+          state.currentModel = action.payload.current_model || action.payload.models[0].id;
         }
       })
       .addCase(fetchModels.rejected, (state, action) => {

@@ -11,28 +11,43 @@ bp = Blueprint('config', __name__, url_prefix='/api')
 def get_ollama_models():
     """Fetch available models from Ollama API"""
     try:
-        url = os.getenv('OLLAMA_URL', 'http://localhost:11434/api/tags')
-        response = requests.get(url, timeout=5)
+        base_url = os.getenv('OLLAMA_URL', 'http://localhost:11434')
+        # Remove any trailing slashes to avoid path issues
+        base_url = base_url.rstrip('/')
+        tags_url = f"{base_url}/api/tags"
+        
+        logger.info(f"[DEBUG] Environment OLLAMA_URL: {os.getenv('OLLAMA_URL')}")
+        logger.info(f"[DEBUG] Using base_url: {base_url}")
+        logger.info(f"[DEBUG] Fetching models from: {tags_url}")
+        
+        response = requests.get(tags_url, timeout=5)
         response.raise_for_status()
         
         # Extract model names and metadata
-        models = response.json().get('models', [])
-        return [{
+        data = response.json()
+        logger.info(f"[DEBUG] Raw Ollama response: {data}")
+        
+        models = data.get('models', [])
+        logger.info(f"[DEBUG] Number of models found: {len(models)}")
+        
+        transformed_models = [{
             'id': model['name'],
-            'name': model['name'],
-            'modified_at': model.get('modified_at', ''),
-            'size': model.get('size', 0),
-            'digest': model.get('digest', ''),
-            'details': {
-                'format': model.get('format', ''),
-                'family': model.get('family', ''),
-                'families': model.get('families', []),
-                'parameter_size': model.get('parameter_size', ''),
-                'quantization_level': model.get('quantization_level', '')
-            }
+            'name': model['name'].split(':')[0],  # Remove ':latest' suffix
+            'modified': model.get('modified_at', ''),
+            'size': str(round(model.get('size', 0) / (1024 * 1024 * 1024), 2)) + ' GB',  # Convert to GB
+            'format': model.get('details', {}).get('format', ''),
+            'family': model.get('details', {}).get('family', ''),
+            'parameters': model.get('details', {}).get('parameter_size', ''),
+            'quantization': model.get('details', {}).get('quantization_level', '')
         } for model in models]
+        
+        logger.info(f"[DEBUG] Transformed models: {transformed_models}")
+        return transformed_models
+        
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error fetching Ollama models: {str(e)}")
+        logger.error(f"[DEBUG] Error fetching Ollama models from {tags_url}: {str(e)}")
+        logger.error(f"[DEBUG] Error type: {type(e)}")
+        logger.error(f"[DEBUG] Error details: {e.__dict__}")
         return []
 
 @bp.route('/models', methods=['GET'])
@@ -42,26 +57,36 @@ def get_models():
         ai_service = os.getenv('AI_SERVICE', 'ollama').lower()
         current_model = os.getenv('OLLAMA_MODEL', 'deepseek-r1')
         
+        logger.info(f"[DEBUG] Getting models for service: {ai_service}")
+        logger.info(f"[DEBUG] Current model from env: {current_model}")
+        
         if ai_service == 'ollama':
             models = get_ollama_models()
+            logger.info(f"[DEBUG] Found {len(models)} Ollama models")
         else:
             models = []
+            logger.warning(f"Unknown AI service: {ai_service}")
         
         # If no models found, return at least the current model
         if not models:
+            logger.warning("[DEBUG] No models found, falling back to current model only")
             models = [{
                 'id': current_model,
                 'name': current_model
             }]
         
-        return jsonify({
+        response_data = {
             'success': True,
             'models': models,
             'current_model': current_model,
             'service': ai_service
-        })
+        }
+        logger.info(f"[DEBUG] Returning response: {response_data}")
+        return jsonify(response_data)
     except Exception as e:
-        logger.error(f"Error getting models: {str(e)}")
+        logger.error(f"[DEBUG] Error getting models: {str(e)}")
+        logger.error(f"[DEBUG] Error type: {type(e)}")
+        logger.error(f"[DEBUG] Error details: {e.__dict__}")
         return jsonify({
             'success': False,
             'error': str(e)

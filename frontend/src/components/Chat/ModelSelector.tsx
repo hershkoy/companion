@@ -4,7 +4,7 @@ import { fetchModels, updateConfig } from '../../store/slices/configSlice';
 import { ModelConfig } from '../../types/chat';
 import './ModelSelector.css';
 
-const ModelSelector: React.FC = () => {
+function ModelSelector(): React.ReactElement {
   const dispatch = useAppDispatch();
   const { modelList, currentModel, status } = useAppSelector(state => state.config);
 
@@ -12,24 +12,24 @@ const ModelSelector: React.FC = () => {
     dispatch(fetchModels());
   }, [dispatch]);
 
-  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  function handleModelChange(e: React.ChangeEvent<HTMLSelectElement>): void {
     dispatch(updateConfig({ model_name: e.target.value }));
-  };
+  }
 
-  const formatModelLabel = (model: ModelConfig): string => {
-    const parts: string[] = [model.name];
-    if (model.size) parts.push(model.size);
+  function formatModelLabel(model: ModelConfig): string {
+    const parts: Array<string> = [model.name];
+    if (model.parameters) parts.push(model.parameters);
     if (model.quantization) parts.push(model.quantization);
     return parts.join(' - ');
-  };
+  }
 
-  const getModelDetails = (model: ModelConfig): string => {
-    const details: string[] = [];
+  function getModelDetails(model: ModelConfig): string {
+    const details: Array<string> = [];
     if (model.family) details.push(`Family: ${model.family}`);
-    if (model.parameters) details.push(`Parameters: ${model.parameters}`);
-    if (model.context_length) details.push(`Context: ${model.context_length} tokens`);
+    if (model.size) details.push(`Size: ${model.size}`);
+    if (model.format) details.push(`Format: ${model.format}`);
     return details.join(' | ');
-  };
+  }
 
   if (status === 'loading') {
     return <div className="model-selector loading">Loading models...</div>;
@@ -38,6 +38,8 @@ const ModelSelector: React.FC = () => {
   if (status === 'failed') {
     return <div className="model-selector error">Failed to load models</div>;
   }
+
+  const currentModelData = modelList.find(m => m.id === currentModel);
 
   return (
     <div className="model-selector">
@@ -59,14 +61,14 @@ const ModelSelector: React.FC = () => {
             ))
           )}
         </select>
-        {modelList.find(m => m.id === currentModel) && (
+        {currentModelData && (
           <div className="model-details">
-            {getModelDetails(modelList.find(m => m.id === currentModel)!)}
+            {getModelDetails(currentModelData)}
           </div>
         )}
       </div>
     </div>
   );
-};
+}
 
 export default ModelSelector;

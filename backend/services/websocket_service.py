@@ -33,7 +33,7 @@ class WebSocketService:
     def broadcast_title_update(self, chat_id: str, title: str) -> None:
         """Broadcast title update to all connected clients"""
         if not self.ws_connections:
-            logger.warning("No WebSocket connections available for broadcasting")
+            # logger.warning("No WebSocket connections available for broadcasting")
             return
             
         message = json.dumps({
@@ -47,7 +47,7 @@ class WebSocketService:
     def broadcast_gpu_status(self, is_indexing: bool, gpu_utilization: float) -> None:
         """Broadcast GPU status update to all connected clients"""
         if not self.ws_connections:
-            logger.warning("No WebSocket connections available for broadcasting")
+            # logger.warning("No WebSocket connections available for broadcasting")
             return
             
         message = json.dumps({
