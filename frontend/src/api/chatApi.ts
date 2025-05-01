@@ -1,5 +1,4 @@
-import axios from 'axios';
-import type { AxiosRequestConfig } from 'axios';
+import axios, { type AxiosResponse } from 'axios';
 import { API_BASE_URL } from './config';
 import {
   GetMessagesResponse,
@@ -18,7 +17,7 @@ export const getMessages = async (
   signal?: AbortSignal
 ): Promise<GetMessagesResponse> => {
   try {
-    const config = { signal } as unknown as AxiosRequestConfig;
+    const config = { signal };
     const response = await axios.get<GetMessagesResponse>(
       `${API_BASE_URL}/sessions/${sessionId}/messages`,
       config
@@ -46,7 +45,7 @@ export const postMessage = async (
   signal?: AbortSignal
 ): Promise<PostMessageResponse> => {
   try {
-    const config = { signal } as unknown as AxiosRequestConfig;
+    const config = { signal };
     const response = await axios.post<PostMessageResponse>(
       `${API_BASE_URL}/sessions/${sessionId}/messages`,
       messageData,

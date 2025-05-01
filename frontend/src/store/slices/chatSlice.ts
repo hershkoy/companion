@@ -2,7 +2,6 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { ChatState } from '../../types/store';
 import { Message } from '../../types/chat';
 import { apiClient } from '../../api/config';
-import type { AxiosRequestConfig } from 'axios';
 
 const initialState: ChatState = {
   messages: [],
@@ -42,7 +41,7 @@ export const fetchMessages = createAsyncThunk<
     const controller = new AbortController();
     state.chat.currentRequest = controller;
 
-    const config = { signal: controller.signal } as unknown as AxiosRequestConfig;
+    const config = { signal: controller.signal };
     const response = await apiClient.get<Message[]>(`/sessions/${sessionId}/messages`, config);
 
     return response.data;

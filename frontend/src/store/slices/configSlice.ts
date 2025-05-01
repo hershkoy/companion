@@ -2,7 +2,6 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { ConfigState } from '../../types/store';
 import { ModelConfig } from '../../types/chat';
 import { apiClient } from '../../api/config';
-import type { AxiosRequestConfig } from 'axios';
 
 interface ModelsResponse {
   models: Array<ModelConfig>;
@@ -57,8 +56,7 @@ export const fetchModels = createAsyncThunk<ModelsResponse, void, { state: { con
       const controller = new AbortController();
       state.config.currentRequest = controller;
 
-      const config = { signal: controller.signal } as unknown as AxiosRequestConfig;
-      const response = await apiClient.get<ModelsResponse>('/models', config);
+      const response = await apiClient.get<ModelsResponse>('/models', { signal: controller.signal });
       return response.data;
     } catch (error) {
       if (error instanceof Error && error.name === 'CanceledError') {
@@ -84,8 +82,7 @@ export const fetchConfig = createAsyncThunk<UpdateConfigPayload, string, { state
       const controller = new AbortController();
       state.config.currentRequest = controller;
 
-      const config = { signal: controller.signal } as unknown as AxiosRequestConfig;
-      const response = await apiClient.get<UpdateConfigPayload>(`/config/${sessionId}`, config);
+      const response = await apiClient.get<UpdateConfigPayload>(`/config/${sessionId}`, { signal: controller.signal });
       return response.data;
     } catch (error) {
       if (error instanceof Error && error.name === 'CanceledError') {
