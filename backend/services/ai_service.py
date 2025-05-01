@@ -22,7 +22,8 @@ class AIService:
 
     def _get_ollama_response(self, prompt: str, chat_id: str, max_tokens: Optional[int] = None) -> str:
         """Get response from Ollama model with GPU acceleration"""
-        url = os.getenv('OLLAMA_URL', 'http://localhost:11434/api/generate')
+        base_url = os.getenv('OLLAMA_URL', 'http://localhost:11434').rstrip('/')
+        url = f"{base_url}/api/generate"
 
         system_prompt = (
             "You are a helpful and conversational assistant. "
@@ -93,10 +94,15 @@ class AIService:
         
         # Handle null input case
         if not prompt or prompt.strip() == '':
-            return "I don't understand. Could you please rephrase that?"
+            return {
+                "action": "Final Answer",
+                "action_input": {
+                    "status": "null"
+                }
+            }
         
         data = {
-            "sessionId": chat_id,
+            "sessionId": chat_id,  # Keep this for backward compatibility with n8n
             "contactMessage": prompt
         }
         
@@ -112,7 +118,7 @@ class AIService:
             if not agent_message:
                 logger.error(f"No agent message in n8n response: {response_data}")
                 raise Exception("No agent message in n8n response")
-                
+            
             return agent_message.strip()
         else:
             raise Exception(f"n8n webhook error: {response.status_code}, {response.text}")
@@ -125,7 +131,8 @@ class AIService:
             prompt = f"Based on this conversation, generate a brief, descriptive title (max 6 words):\n\n{conversation}"
             
             # Use Ollama for title generation
-            url = os.getenv('OLLAMA_URL', 'http://localhost:11434/api/generate')
+            base_url = os.getenv('OLLAMA_URL', 'http://localhost:11434').rstrip('/')
+            url = f"{base_url}/api/generate"
             response = requests.post(url, json={
                 "model": os.getenv('OLLAMA_MODEL', 'deepseek-r1'),
                 "prompt": prompt,

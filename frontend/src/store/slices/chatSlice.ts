@@ -9,7 +9,8 @@ const initialState: ChatState = {
   status: 'idle',
   error: null,
   currentSessionId: null,
-  currentRequest: null
+  currentRequest: null,
+  lastAudioMessageId: null  // Track the last message with audio segments
 };
 
 // Define error handling type
@@ -112,6 +113,7 @@ const chatSlice = createSlice({
       state.messages = [];
       state.status = 'idle';
       state.error = null;
+      state.lastAudioMessageId = null;
       if (state.currentRequest) {
         state.currentRequest.abort();
         state.currentRequest = null;
@@ -156,6 +158,7 @@ const chatSlice = createSlice({
       })
       .addCase(sendAudioMessage.pending, (state) => {
         state.status = 'loading';
+        state.error = null;
       })
       .addCase(sendAudioMessage.fulfilled, (state, action) => {
         state.status = 'idle';
@@ -168,13 +171,16 @@ const chatSlice = createSlice({
           });
         }
         if (action.payload.response) {
+          const messageId = (Date.now() + 1).toString();
           state.messages.push({
-            id: (Date.now() + 1).toString(),
+            id: messageId,
             role: 'assistant',
             content: action.payload.response.agentMessage,
             timestamp: new Date().toISOString(),
             audioSegments: action.payload.response.segments,
           });
+          // Set this as the latest audio message to trigger playback
+          state.lastAudioMessageId = messageId;
         }
       })
       .addCase(sendAudioMessage.rejected, (state, action) => {

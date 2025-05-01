@@ -4,9 +4,11 @@ import './AudioPlayer.css';
 interface AudioPlayerProps {
   audioData: string;  // base64 encoded audio data
   text: string;
+  shouldPlay: boolean;
+  onComplete: () => void;
 }
 
-export function AudioPlayer({ audioData, text }: AudioPlayerProps): JSX.Element {
+export function AudioPlayer({ audioData, text, shouldPlay, onComplete }: AudioPlayerProps): JSX.Element {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -14,16 +16,39 @@ export function AudioPlayer({ audioData, text }: AudioPlayerProps): JSX.Element 
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.addEventListener('timeupdate', updateProgress);
-      audioRef.current.addEventListener('ended', () => setIsPlaying(false));
+      audioRef.current.addEventListener('ended', handleAudioEnd);
       
       return () => {
         if (audioRef.current) {
           audioRef.current.removeEventListener('timeupdate', updateProgress);
-          audioRef.current.removeEventListener('ended', () => setIsPlaying(false));
+          audioRef.current.removeEventListener('ended', handleAudioEnd);
         }
       };
     }
   }, []);
+
+  // Handle shouldPlay changes
+  useEffect(() => {
+    if (audioRef.current) {
+      if (shouldPlay && !isPlaying) {
+        audioRef.current.play().then(() => {
+          setIsPlaying(true);
+        }).catch((error) => {
+          console.error('Failed to play audio:', error);
+          // Move to next segment even if this one fails
+          onComplete();
+        });
+      } else if (!shouldPlay && isPlaying) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      }
+    }
+  }, [shouldPlay, isPlaying, onComplete]);
+
+  function handleAudioEnd(): void {
+    setIsPlaying(false);
+    onComplete();
+  }
 
   function updateProgress(): void {
     if (audioRef.current) {

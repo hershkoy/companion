@@ -11,9 +11,7 @@ bp = Blueprint('config', __name__, url_prefix='/api')
 def get_ollama_models():
     """Fetch available models from Ollama API"""
     try:
-        base_url = os.getenv('OLLAMA_URL', 'http://localhost:11434')
-        # Remove any trailing slashes to avoid path issues
-        base_url = base_url.rstrip('/')
+        base_url = os.getenv('OLLAMA_URL', 'http://localhost:11434').rstrip('/')
         tags_url = f"{base_url}/api/tags"
         
         logger.info(f"[DEBUG] Environment OLLAMA_URL: {os.getenv('OLLAMA_URL')}")

@@ -7,6 +7,7 @@ export interface ChatState {
   error: string | null;
   currentSessionId: string | null;
   currentRequest: AbortController | null;
+  lastAudioMessageId: string | null;
 }
 
 export interface ConfigState {
