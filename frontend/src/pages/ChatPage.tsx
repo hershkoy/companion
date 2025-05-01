@@ -1,5 +1,5 @@
-import React from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import ChatWindow from '../components/Chat/ChatWindow';
 import ModelSelector from '../components/Chat/ModelSelector';
@@ -15,11 +15,28 @@ type ChatPageParams = {
 
 function ChatPage(): React.ReactElement {
   const { sessionId } = useParams<'sessionId'>();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const { isLoading, error } = useInitialization(sessionId);
 
+  // Redirect to home if no sessionId
+  useEffect(() => {
+    if (!sessionId) {
+      navigate('/', { replace: true });
+    }
+  }, [sessionId, navigate]);
+
   // Start GPU status polling
   useGpuStatus();
+
+  if (!sessionId) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner" />
+        <div>Initializing session...</div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -55,7 +72,7 @@ function ChatPage(): React.ReactElement {
         <ModelSelector />
         <IndexingIndicator />
       </div>
-      <ChatWindow sessionId={sessionId || ''} />
+      <ChatWindow sessionId={sessionId} />
     </div>
   );
 }

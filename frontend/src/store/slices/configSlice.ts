@@ -51,22 +51,26 @@ export const fetchModels = createAsyncThunk<ModelsResponse, void>(
     try {
       // Cancel previous request if it exists
       if (currentModelsRequest) {
+        console.log('[Config] Aborting previous models request');
         currentModelsRequest.abort();
       }
 
       // Create new AbortController
       currentModelsRequest = new AbortController();
+      console.log('[Config] Fetching models from API');
 
       const response = await apiClient.get<ModelsResponse>('/models', {
         signal: currentModelsRequest.signal
       });
 
+      console.log('[Config] Models API response:', response.data);
       return response.data;
     } catch (error) {
       if (error instanceof Error && error.name === 'CanceledError') {
+        console.log('[Config] Models request was canceled');
         throw error;
       }
-      console.error('Error fetching models:', error);
+      console.error('[Config] Error fetching models:', error);
       throw error;
     } finally {
       currentModelsRequest = null;
@@ -80,22 +84,26 @@ export const fetchConfig = createAsyncThunk<UpdateConfigPayload, string>(
     try {
       // Cancel previous request if it exists
       if (currentConfigRequest) {
+        console.log('[Config] Aborting previous config request');
         currentConfigRequest.abort();
       }
 
       // Create new AbortController
       currentConfigRequest = new AbortController();
+      console.log('[Config] Fetching config for session:', sessionId);
 
       const response = await apiClient.get<UpdateConfigPayload>(`/sessions/${sessionId}/config`, {
         signal: currentConfigRequest.signal
       });
 
+      console.log('[Config] Config API response:', response.data);
       return response.data;
     } catch (error) {
       if (error instanceof Error && error.name === 'CanceledError') {
+        console.log('[Config] Config request was canceled');
         throw error;
       }
-      console.error('Error fetching config:', error);
+      console.error('[Config] Error fetching config:', error);
       throw error;
     } finally {
       currentConfigRequest = null;
@@ -111,6 +119,8 @@ const configSlice = createSlice({
       const { model_name, thinking_mode, top_k, embed_light, embed_deep, idle_threshold } =
         action.payload;
 
+      console.log('[Config] Updating config with:', action.payload);
+
       if (model_name) state.currentModel = model_name;
       if (thinking_mode) state.thinkingMode = thinking_mode;
       if (top_k) state.topK = top_k;
@@ -119,6 +129,7 @@ const configSlice = createSlice({
       if (idle_threshold) state.idleThreshold = idle_threshold;
     },
     resetInitialization: (state) => {
+      console.log('[Config] Resetting initialization state');
       state.isInitialized = false;
       // Abort any pending requests
       if (currentModelsRequest) {
@@ -134,9 +145,11 @@ const configSlice = createSlice({
   extraReducers: builder => {
     builder
       .addCase(fetchModels.pending, state => {
+        console.log('[Config] Models fetch pending');
         state.status = 'loading';
       })
       .addCase(fetchModels.fulfilled, (state, action) => {
+        console.log('[Config] Models fetch succeeded:', action.payload);
         state.status = 'succeeded';
         state.modelList = action.payload.models;
         if (!state.currentModel && action.payload.models.length > 0) {
@@ -145,15 +158,19 @@ const configSlice = createSlice({
       })
       .addCase(fetchModels.rejected, (state, action) => {
         if (action.error.name === 'CanceledError') {
+          console.log('[Config] Models fetch canceled');
           return;
         }
+        console.error('[Config] Models fetch failed:', action.error);
         state.status = 'failed';
         state.error = action.error.message || 'Failed to fetch models';
       })
       .addCase(fetchConfig.pending, state => {
+        console.log('[Config] Config fetch pending');
         state.status = 'loading';
       })
       .addCase(fetchConfig.fulfilled, (state, action) => {
+        console.log('[Config] Config fetch succeeded:', action.payload);
         state.status = 'succeeded';
         state.error = null;
         state.isInitialized = true;
@@ -168,8 +185,10 @@ const configSlice = createSlice({
       })
       .addCase(fetchConfig.rejected, (state, action) => {
         if (action.error.name === 'CanceledError') {
+          console.log('[Config] Config fetch canceled');
           return;
         }
+        console.error('[Config] Config fetch failed:', action.error);
         state.status = 'failed';
         state.error = action.error.message || 'Failed to fetch config';
       });
