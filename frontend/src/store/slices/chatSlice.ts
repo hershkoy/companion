@@ -1,6 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { ChatState } from '../../types/store';
 import { Message } from '../../types/chat';
+import { apiClient } from '../../api/config';
+import axios from 'axios';
 
 const initialState: ChatState = {
   messages: [],
@@ -9,28 +11,38 @@ const initialState: ChatState = {
   currentSessionId: null,
 };
 
-export const fetchMessages = createAsyncThunk<Message[], string>(
-  'chat/fetchMessages',
-  async (sessionId: string) => {
+// Define error handling type
+type ApiError = {
+  message: string;
+  status?: number;
+};
+
+// Define axios error response type
+interface ErrorResponse {
+  data?: {
+    message?: string;
+  };
+  status?: number;
+}
+
+export const fetchMessages = createAsyncThunk<
+  Message[],
+  string,
+  { rejectValue: ApiError }
+>('chat/fetchMessages', async (sessionId: string, { rejectWithValue }) => {
+  try {
     console.log('Fetching messages for session:', sessionId);
-    const response = await fetch(`/backend/api/sessions/${sessionId}/messages`);
-    console.log('Response status:', response.status);
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-    const text = await response.text();
-    console.log('Response text:', text);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch messages: ${response.status} ${text}`);
-    }
-    
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      console.error('Failed to parse JSON:', e);
-      throw new Error(`Invalid JSON response: ${text}`);
-    }
+    const response = await apiClient.get<Message[]>(`/sessions/${sessionId}/messages`);
+    console.log('Response:', response);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as { response?: ErrorResponse };
+    return rejectWithValue({
+      message: axiosError.response?.data?.message || 'Failed to fetch messages',
+      status: axiosError.response?.status
+    });
   }
-);
+});
 
 interface SendMessagePayload {
   sessionId: string;
@@ -38,40 +50,33 @@ interface SendMessagePayload {
   thinkingMode: string;
 }
 
-export const sendMessage = createAsyncThunk<Message, SendMessagePayload>(
-  'chat/sendMessage',
-  async ({ sessionId, content, thinkingMode }) => {
+export const sendMessage = createAsyncThunk<
+  Message,
+  SendMessagePayload,
+  { rejectValue: ApiError }
+>('chat/sendMessage', async ({ sessionId, content, thinkingMode }, { rejectWithValue }) => {
+  try {
     console.log('Sending message:', { sessionId, content, thinkingMode });
-    const response = await fetch(`/backend/api/sessions/${sessionId}/messages`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ content, thinking_mode: thinkingMode }),
+    const response = await apiClient.post<Message>(`/sessions/${sessionId}/messages`, {
+      content,
+      thinking_mode: thinkingMode,
     });
-    console.log('Response status:', response.status);
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-    const text = await response.text();
-    console.log('Response text:', text);
-
-    if (!response.ok) {
-      throw new Error(`Failed to send message: ${response.status} ${text}`);
-    }
-
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      console.error('Failed to parse JSON:', e);
-      throw new Error(`Invalid JSON response: ${text}`);
-    }
+    console.log('Response:', response);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as { response?: ErrorResponse };
+    return rejectWithValue({
+      message: axiosError.response?.data?.message || 'Failed to send message',
+      status: axiosError.response?.status
+    });
   }
-);
+});
 
 const chatSlice = createSlice({
   name: 'chat',
   initialState,
   reducers: {
-    clearMessages: state => {
+    clearMessages: (state) => {
       state.messages = [];
       state.status = 'idle';
       state.error = null;
@@ -80,29 +85,33 @@ const chatSlice = createSlice({
       state.currentSessionId = action.payload;
     },
   },
-  extraReducers: builder => {
+  extraReducers: (builder) => {
     builder
-      .addCase(fetchMessages.pending, state => {
+      .addCase(fetchMessages.pending, (state) => {
         state.status = 'loading';
+        state.error = null;
       })
       .addCase(fetchMessages.fulfilled, (state, action) => {
         state.status = 'succeeded';
         state.messages = action.payload;
+        state.error = null;
       })
       .addCase(fetchMessages.rejected, (state, action) => {
         state.status = 'failed';
-        state.error = action.error.message || 'Failed to fetch messages';
+        state.error = action.payload?.message || action.error.message || 'Failed to fetch messages';
       })
-      .addCase(sendMessage.pending, state => {
+      .addCase(sendMessage.pending, (state) => {
         state.status = 'loading';
+        state.error = null;
       })
       .addCase(sendMessage.fulfilled, (state, action) => {
         state.status = 'succeeded';
         state.messages.push(action.payload);
+        state.error = null;
       })
       .addCase(sendMessage.rejected, (state, action) => {
         state.status = 'failed';
-        state.error = action.error.message || 'Failed to send message';
+        state.error = action.payload?.message || action.error.message || 'Failed to send message';
       });
   },
 });

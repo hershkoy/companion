@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { GPUState } from '../../types/store';
+import { apiClient } from '../../api/config';
 
 interface GPUStatusResponse {
   is_indexing: boolean;
@@ -11,27 +12,54 @@ interface IndexingResponse {
   message: string;
 }
 
+// Define error handling type
+type ApiError = {
+  message: string;
+  status?: number;
+};
+
+// Define axios error response type
+interface ErrorResponse {
+  data?: {
+    message?: string;
+  };
+  status?: number;
+}
+
 // Async thunks
-export const pollGpuStatus = createAsyncThunk<GPUStatusResponse>('gpu/pollStatus', async () => {
-  const response = await fetch('/backend/api/embeddings/status');
-  if (!response.ok) {
-    throw new Error('Failed to fetch GPU status');
+export const pollGpuStatus = createAsyncThunk<
+  GPUStatusResponse,
+  void,
+  { rejectValue: ApiError }
+>('gpu/pollStatus', async (_, { rejectWithValue }) => {
+  try {
+    const response = await apiClient.get<GPUStatusResponse>('/embeddings/status');
+    return response.data;
+  } catch (error) {
+    const axiosError = error as { response?: ErrorResponse };
+    return rejectWithValue({
+      message: axiosError.response?.data?.message || 'Failed to fetch GPU status',
+      status: axiosError.response?.status
+    });
   }
-  return response.json();
 });
 
-export const triggerIndexing = createAsyncThunk<IndexingResponse>(
-  'gpu/triggerIndexing',
-  async () => {
-    const response = await fetch('/backend/api/embeddings/index', {
-      method: 'POST',
+export const triggerIndexing = createAsyncThunk<
+  IndexingResponse,
+  void,
+  { rejectValue: ApiError }
+>('gpu/triggerIndexing', async (_, { rejectWithValue }) => {
+  try {
+    const response = await apiClient.post<IndexingResponse>('/embeddings/index');
+    return response.data;
+  } catch (error) {
+    const axiosError = error as { response?: ErrorResponse };
+    return rejectWithValue({
+      message: axiosError.response?.data?.message || 'Failed to trigger indexing',
+      status: axiosError.response?.status
     });
-    if (!response.ok) {
-      throw new Error('Failed to trigger indexing');
-    }
-    return response.json();
   }
-);
+});
 
 const initialState: GPUState = {
   isAvailable: false,
@@ -46,14 +74,14 @@ const gpuSlice = createSlice({
   name: 'gpu',
   initialState,
   reducers: {
-    resetError: state => {
+    resetError: (state) => {
       state.error = null;
     },
   },
-  extraReducers: builder => {
+  extraReducers: (builder) => {
     builder
       // Poll status cases
-      .addCase(pollGpuStatus.pending, state => {
+      .addCase(pollGpuStatus.pending, (state) => {
         state.status = 'loading';
       })
       .addCase(pollGpuStatus.fulfilled, (state, action: PayloadAction<GPUStatusResponse>) => {
@@ -64,13 +92,13 @@ const gpuSlice = createSlice({
       })
       .addCase(pollGpuStatus.rejected, (state, action) => {
         state.status = 'failed';
-        state.error = action.error.message || 'An error occurred';
+        state.error = action.payload?.message || action.error.message || 'Failed to fetch GPU status';
       })
       // Trigger indexing cases
-      .addCase(triggerIndexing.pending, state => {
+      .addCase(triggerIndexing.pending, (state) => {
         state.status = 'loading';
       })
-      .addCase(triggerIndexing.fulfilled, state => {
+      .addCase(triggerIndexing.fulfilled, (state) => {
         state.status = 'succeeded';
         state.isIndexing = true;
         state.lastIndexingStart = new Date().toISOString();
@@ -78,7 +106,7 @@ const gpuSlice = createSlice({
       })
       .addCase(triggerIndexing.rejected, (state, action) => {
         state.status = 'failed';
-        state.error = action.error.message || 'An error occurred';
+        state.error = action.payload?.message || action.error.message || 'Failed to trigger indexing';
       });
   },
 });

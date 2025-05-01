@@ -1,10 +1,23 @@
 import React, { useEffect, useRef } from 'react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, isValid } from 'date-fns';
 import { Message } from '../../types/chat';
 import './MessageList.css';
 
 interface MessageListProps {
   messages: Message[];
+}
+
+function formatMessageTimestamp(timestamp: string): string {
+  try {
+    const date = new Date(timestamp);
+    if (!isValid(date)) {
+      return 'Invalid date';
+    }
+    return formatDistanceToNow(date, { addSuffix: true });
+  } catch (error) {
+    console.error('Error formatting timestamp:', error);
+    return 'Invalid date';
+  }
 }
 
 const MessageList: React.FC<MessageListProps> = ({ messages }) => {
@@ -37,7 +50,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages }) => {
         >
           <div className="message-content">{message.content}</div>
           <div className="message-timestamp">
-            {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
+            {formatMessageTimestamp(message.timestamp)}
           </div>
         </div>
       ))}
